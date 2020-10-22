@@ -8,8 +8,10 @@ For downloading and installing the Plugin NPM is used in Homebridge: [Link to NP
 ## 🔨 Adding the Accessory to the config.json
 To make the accessory visible in your HomeKIT App you have to add the accessory to the config.json
 
-```{
+```
+{
     "accessory": "WLED",
     "name": "CUSTOM_NAME_OF_ACCESSORY",
     "host": "IP_ADRESS_OF_YOUR_WLED_STRIP"
-}```
+}
+```
