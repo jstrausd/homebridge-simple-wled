@@ -10,6 +10,7 @@ import {
   HAP,
   Int64,
   Int8,
+  Logger,
   Logging,
   Service
 } from "homebridge";
@@ -28,13 +29,15 @@ export = (api: API) => {
   api.registerAccessory("WLED", WLED);
 };
 
-class WLED implements AccessoryPlugin {
+class WLED implements AccessoryPlugin{
 
-  private readonly log: Logging;
+  public debug: boolean = false;
+
+  private log: Logger;
   private readonly name: string;
   private readonly host: string;
   private lightOn = false;
-  private brightness = 100;
+  private brightness = -1;
   private hue = 100;
   private saturation = 100;
 
@@ -45,7 +48,8 @@ class WLED implements AccessoryPlugin {
   private readonly switchService: Service;
 
   constructor(log: Logging, config: AccessoryConfig, api: API) {
-    this.log = log;
+    Logger.setDebugEnabled(true);
+    this.log = new Logger();
     this.name = config.name;
     this.host = config.host;
 
@@ -56,8 +60,8 @@ class WLED implements AccessoryPlugin {
 
     this.registerCharacteristicOnOff();
     this.registerCharacteristicBrightness();
-    this.registerCharacteristicHue();
     this.registerCharacteristicSaturation();
+    this.registerCharacteristicHue();
 
     this.registerCharacteristicRainbowRunner();
 
@@ -73,17 +77,17 @@ class WLED implements AccessoryPlugin {
 
     this.lightService.getCharacteristic(hap.Characteristic.On)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
-        this.log.info("Current state of the switch was returned: " + (this.lightOn ? "ON" : "OFF"));
+        this.log.debug("Current state of the switch was returned: " + (this.lightOn ? "ON" : "OFF"));
         callback(undefined, this.lightOn);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
         this.lightOn = value as boolean;
         if (this.lightOn) {
-          this.httpSendData(`http://${this.host}/win&T=1`, "GET", {}, (error:any, response:any) => { if (error) return; });
+          this.httpSendData(`http://${this.host}/win&T=1`, "GET", {}, (error: any, response: any) => { if (error) return; });
         } else {
-          this.httpSendData(`http://${this.host}/win&T=0`, "GET", {}, (error:any, response:any) => { if (error) return; });
+          this.httpSendData(`http://${this.host}/win&T=0`, "GET", {}, (error: any, response: any) => { if (error) return; });
         }
-        this.log.info("Switch state was set to: " + (this.lightOn ? "ON" : "OFF"));
+        this.log.debug("Switch state was set to: " + (this.lightOn ? "ON" : "OFF"));
         callback();
       });
 
@@ -93,14 +97,16 @@ class WLED implements AccessoryPlugin {
 
     this.lightService.getCharacteristic(hap.Characteristic.Brightness)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
-        this.log.info("Current brightness: " + this.brightness + "%");
-        callback(undefined, this.brightness);
+        this.log.debug("Current brightness: " + this.brightness);
+        callback(undefined, this.currentBrightnessToPercent());
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
-        this.brightness = value as number;
-        let colorArray = this.HSVtoRGB(this.hue/360, this.saturation/100, this.brightness/100);
-        this.httpSendData(`http://${this.host}/json`, "POST", { "seg": [{ "col": [colorArray] }] }, (error:any, response:any) => { if (error) return; });
-        this.log.info("Brightness was set to: " + this.brightness + "%");
+        this.log.debug("\n--------------------------------------------------\n               BRIGHTNESS\n--------------------------------------------------");
+        this.brightness = Math.floor(255 / 100 * (value as number));
+        let colorArray = this.HSVtoRGB(this.hue / 360, this.saturation / 100, this.currentBrightnessToPercent()/100);
+        this.httpSendData(`http://${this.host}/json`, "POST", {"seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
+        this.log.debug("Brightness was set to: " + this.brightness);
+        this.log.debug("\n--------------------------------------------------\n               END BRIGHTNESS\n--------------------------------------------------");
         callback();
       });
 
@@ -110,15 +116,15 @@ class WLED implements AccessoryPlugin {
 
     this.lightService.getCharacteristic(hap.Characteristic.Hue)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
-        this.log.info("Current hue: " + this.hue + "%");
+        this.log.debug("Current hue: " + this.hue + "%");
         callback(undefined, this.hue);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+        this.log.debug("\n--------------------------------------------------\n               HUE\n--------------------------------------------------");
         this.hue = value as number;
         this.turnOffAllEffects();
-        let colorArray = this.HSVtoRGB(this.hue/360, this.saturation/100, this.brightness/100);
-        this.httpSendData(`http://${this.host}/json`, "POST", { "seg": [{ "col": [colorArray] }] }, (error:any, response:any) => { if (error) return; });
-        this.log.info("Hue was set to: " + this.hue + "%");
+        this.log.debug("Hue was set to: " + this.hue + "%");
+        this.log.debug("\n--------------------------------------------------\n              END HUE\n--------------------------------------------------");
         callback();
       });
 
@@ -128,13 +134,18 @@ class WLED implements AccessoryPlugin {
 
     this.lightService.getCharacteristic(hap.Characteristic.Saturation)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
-        this.log.info("Current saturation: " + this.saturation + "%");
+        this.log.debug("Current saturation: " + this.saturation + "%");
         callback(undefined, this.saturation);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+        this.log.debug("\n--------------------------------------------------\n               SATURATION\n--------------------------------------------------");
         this.saturation = value as number;
         this.turnOffAllEffects();
-        this.log.info("Saturation was set to: " + this.saturation + "%");
+        let colorArray = this.HSVtoRGB(this.hue / 360, this.saturation / 100, this.currentBrightnessToPercent()/100);
+        this.log.debug(colorArray);
+        this.httpSendData(`http://${this.host}/json`, "POST", {"seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
+        this.log.debug("Saturation was set to: " + this.saturation + "%");
+        this.log.debug("\n--------------------------------------------------\n              END SATURATION\n--------------------------------------------------");
         callback();
       });
 
@@ -144,76 +155,94 @@ class WLED implements AccessoryPlugin {
 
     this.switchService.getCharacteristic(hap.Characteristic.On)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
-        this.log.info("Current state of the rainbow runner was returned: " + (this.rainbowRunnerOn ? "ON" : "OFF"));
+        this.log.debug("Current state of the rainbow runner was returned: " + (this.rainbowRunnerOn ? "ON" : "OFF"));
         callback(undefined, this.rainbowRunnerOn);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
         this.rainbowRunnerOn = value as boolean;
-        this.log.info(value as boolean + "", this.rainbowRunnerOn);
-        if(this.rainbowRunnerOn)
-         this.turnOnRainbowEffect();
-        else 
+        this.log.debug(value as boolean + "", this.rainbowRunnerOn);
+        if (this.rainbowRunnerOn)
+          this.turnOnRainbowEffect();
+        else
           this.turnOffAllEffects();
-        this.log.info("Rainbow Runner state was set to: " + (this.rainbowRunnerOn ? "ON" : "OFF"));
+        this.log.debug("Rainbow Runner state was set to: " + (this.rainbowRunnerOn ? "ON" : "OFF"));
         callback();
       });
 
   }
 
   turnOnRainbowEffect(): void {
-    this.httpSendData(`http://${this.host}/json`, "POST", { "seg": [{ "fx":  this.getEffectIdByName("Rainbow Runner"), "sx": 20}] }, (error:any, resp:any) => {if(error) return;});
-    this.log.info("Turned on Rainbow Runner!");
+    this.httpSendData(`http://${this.host}/json`, "POST", { "seg": [{ "fx": this.getEffectIdByName("Rainbow Runner"), "sx": 20 }] }, (error: any, resp: any) => { if (error) return; });
+    this.log.debug("Turned on Rainbow Runner!");
   }
 
-  turnOffAllEffects(): void{
-    this.httpSendData(`http://${this.host}/json`, "POST", { "seg": [{ "fx":  0, "sx": 0, "col": [255,0,0]}] }, (error:any, response:any) => { if (error) return; });
-    this.log.info("Turned off Effects!");
+  turnOffAllEffects(): void {
+    this.httpSendData(`http://${this.host}/json`, "POST", { "seg": [{ "fx": 0, "sx": 0, "col": [255, 0, 0] }] }, (error: any, response: any) => { if (error) return; });
+    this.log.debug("Turned off Effects!");
   }
 
-  getEffectIdByName(name:string): number{
+  getEffectIdByName(name: string): number {
     return this.getAllEffects().indexOf(name);
   }
 
-  getAllEffects(): Array<string>{
+  getAllEffects(): Array<string> {
     return [
-      "Solid","Blink","Breathe","Wipe","Wipe Random","Random Colors","Sweep","Dynamic","Colorloop","Rainbow",
-      "Scan","Scan Dual","Fade","Theater","Theater Rainbow","Running","Saw","Twinkle","Dissolve","Dissolve Rnd",
-      "Sparkle","Sparkle Dark","Sparkle+","Strobe","Strobe Rainbow","Strobe Mega","Blink Rainbow","Android","Chase","Chase Random",
-      "Chase Rainbow","Chase Flash","Chase Flash Rnd","Rainbow Runner","Colorful","Traffic Light","Sweep Random","Running 2","Red & Blue","Stream",
-      "Scanner","Lighthouse","Fireworks","Rain","Merry Christmas","Fire Flicker","Gradient","Loading","Police","Police All",
-      "Two Dots","Two Areas","Circus","Halloween","Tri Chase","Tri Wipe","Tri Fade","Lightning","ICU","Multi Comet",
-      "Scanner Dual","Stream 2","Oscillate","Pride 2015","Juggle","Palette","Fire 2012","Colorwaves","Bpm","Fill Noise",
-      "Noise 1","Noise 2","Noise 3","Noise 4","Colortwinkles","Lake","Meteor","Meteor Smooth","Railway","Ripple",
-      "Twinklefox","Twinklecat","Halloween Eyes","Solid Pattern","Solid Pattern Tri","Spots","Spots Fade","Glitter","Candle","Fireworks Starburst",
-      "Fireworks 1D","Bouncing Balls","Sinelon","Sinelon Dual","Sinelon Rainbow","Popcorn","Drip","Plasma","Percent","Ripple Rainbow",
-      "Heartbeat","Pacifica","Candle Multi", "Solid Glitter","Sunrise","Phased","Twinkleup","Noise Pal", "Sine","Phased Noise",
-      "Flow","Chunchun","Dancing Shadows","Washing Machine"
-      ];
+      "Solid", "Blink", "Breathe", "Wipe", "Wipe Random", "Random Colors", "Sweep", "Dynamic", "Colorloop", "Rainbow",
+      "Scan", "Scan Dual", "Fade", "Theater", "Theater Rainbow", "Running", "Saw", "Twinkle", "Dissolve", "Dissolve Rnd",
+      "Sparkle", "Sparkle Dark", "Sparkle+", "Strobe", "Strobe Rainbow", "Strobe Mega", "Blink Rainbow", "Android", "Chase", "Chase Random",
+      "Chase Rainbow", "Chase Flash", "Chase Flash Rnd", "Rainbow Runner", "Colorful", "Traffic Light", "Sweep Random", "Running 2", "Red & Blue", "Stream",
+      "Scanner", "Lighthouse", "Fireworks", "Rain", "Merry Christmas", "Fire Flicker", "Gradient", "Loading", "Police", "Police All",
+      "Two Dots", "Two Areas", "Circus", "Halloween", "Tri Chase", "Tri Wipe", "Tri Fade", "Lightning", "ICU", "Multi Comet",
+      "Scanner Dual", "Stream 2", "Oscillate", "Pride 2015", "Juggle", "Palette", "Fire 2012", "Colorwaves", "Bpm", "Fill Noise",
+      "Noise 1", "Noise 2", "Noise 3", "Noise 4", "Colortwinkles", "Lake", "Meteor", "Meteor Smooth", "Railway", "Ripple",
+      "Twinklefox", "Twinklecat", "Halloween Eyes", "Solid Pattern", "Solid Pattern Tri", "Spots", "Spots Fade", "Glitter", "Candle", "Fireworks Starburst",
+      "Fireworks 1D", "Bouncing Balls", "Sinelon", "Sinelon Dual", "Sinelon Rainbow", "Popcorn", "Drip", "Plasma", "Percent", "Ripple Rainbow",
+      "Heartbeat", "Pacifica", "Candle Multi", "Solid Glitter", "Sunrise", "Phased", "Twinkleup", "Noise Pal", "Sine", "Phased Noise",
+      "Flow", "Chunchun", "Dancing Shadows", "Washing Machine"
+    ];
   }
 
   updateLight(): void {
     this.lightService.updateCharacteristic(hap.Characteristic.On, this.lightOn);
-    this.lightService.updateCharacteristic(hap.Characteristic.Brightness, this.brightness);
-    this.lightService.updateCharacteristic(hap.Characteristic.Hue, this.hue);
+    this.lightService.updateCharacteristic(hap.Characteristic.Brightness, this.currentBrightnessToPercent());
     this.lightService.updateCharacteristic(hap.Characteristic.Saturation, this.saturation);
+    this.lightService.updateCharacteristic(hap.Characteristic.Hue, this.hue);
+    this.switchService.updateCharacteristic(hap.Characteristic.On, this.rainbowRunnerOn);
   }
+
 
 
   startPolling(): void {
     var that = this;
     var status = polling(function (done: any) {
       that.httpSendData(`http://${that.host}/json/state`, "GET", {}, (error: any, response: any) => {
-        if(error){
-          that.log.info("Error while Polling");
-          return;
-        }
-        if (that.lightOn != response["data"]["on"] || that.brightness != response["data"]["bri"]) {
-          that.lightOn = response["data"]["on"];
-          that.brightness = response["data"]["bri"];
-          that.updateLight();
-        }
+        done(error, response);
       })
     }, { longpolling: true, interval: 6000, longpollEventName: "statuspoll" });
+
+    status.on("poll", function (response: any) {
+      that.log.debug("Response: " + JSON.stringify(response["data"]));
+      that.log.debug("RainbowRunnerOn: " + that.rainbowRunnerOn);
+      that.log.debug("Data: " + JSON.stringify(response["data"]["seg"][0]["fx"]));
+      that.log.debug("Data-Bool: " + (response["data"]["seg"][0]["fx"] == 33 ? true : false));
+      that.log.debug("Current Switch State: " + that.switchService.getCharacteristic(hap.Characteristic.On).value);
+
+      let rainbowRunnerOnData = (response["data"]["seg"][0]["fx"] == 33 ? true : false);
+      if (that.lightOn != response["data"]["on"] || that.brightness != response["data"]["bri"] || that.switchService.getCharacteristic(hap.Characteristic.On).value != rainbowRunnerOnData || that.rainbowRunnerOn != rainbowRunnerOnData) {
+        that.lightOn = response["data"]["on"];
+        that.brightness = response["data"]["bri"];
+        that.rainbowRunnerOn = (response["data"]["seg"][0]["fx"] == 33 ? true : false)
+        that.updateLight();
+      }
+    });
+
+    status.on("error", function (error: any, response: any) {
+      if (error) {
+        that.log.info("Error while Polling");
+        that.log.info(error);
+        return;
+      }
+    })
   }
 
 
@@ -237,18 +266,10 @@ class WLED implements AccessoryPlugin {
     }
   }
 
-  /*
-   * This method is optional to implement. It is called when HomeKit ask to identify the accessory.
-   * Typical this only ever happens at the pairing process.
-   */
   identify(): void {
-    this.log("Identify!");
+    this.log.debug("Identify!");
   }
 
-  /*
-   * This method is called directly after creation of this instance.
-   * It should return all services which should be added to the accessory.
-   */
   getServices(): Service[] {
     return [
       this.informationService,
@@ -257,34 +278,39 @@ class WLED implements AccessoryPlugin {
     ];
   }
 
- /* accepts parameters
- * h  Object = {h:x, s:y, v:z}
- * OR 
- * h, s, v
-*/
-HSVtoRGB(h:any, s:any, v:any): any {
-  var r, g, b, i, f, p, q, t;
-  if (arguments.length === 1) {
-    s = h.s, v = h.v, h = h.h;
+
+  currentBrightnessToPercent() {
+    return Math.floor(100 / 255 * this.brightness);
   }
-  i = Math.floor(h * 6);
-  f = h * 6 - i;
-  p = v * (1 - s);
-  q = v * (1 - f * s);
-  t = v * (1 - (1 - f) * s);
-  switch (i % 6) {
-    case 0: r = v, g = t, b = p; break;
-    case 1: r = q, g = v, b = p; break;
-    case 2: r = p, g = v, b = t; break;
-    case 3: r = p, g = q, b = v; break;
-    case 4: r = t, g = p, b = v; break;
-    case 5: r = v, g = p, b = q; break;
+
+  /* accepts parameters
+  * h  Object = {h:x, s:y, v:z}
+  * OR 
+  * h, s, v
+ */
+  HSVtoRGB(h: any, s: any, v: any): any {
+    var r, g, b, i, f, p, q, t;
+    if (arguments.length === 1) {
+      s = h.s, v = h.v, h = h.h;
+    }
+    i = Math.floor(h * 6);
+    f = h * 6 - i;
+    p = v * (1 - s);
+    q = v * (1 - f * s);
+    t = v * (1 - (1 - f) * s);
+    switch (i % 6) {
+      case 0: r = v, g = t, b = p; break;
+      case 1: r = q, g = v, b = p; break;
+      case 2: r = p, g = v, b = t; break;
+      case 3: r = p, g = q, b = v; break;
+      case 4: r = t, g = p, b = v; break;
+      case 5: r = v, g = p, b = q; break;
+    }
+    return [
+      Math.round(r * 255),
+      Math.round(g * 255),
+      Math.round(b * 255)
+    ];
   }
-  return [
-    Math.round(r * 255),
-    Math.round(g * 255),
-    Math.round(b * 255)
-  ];
-}
 
 }
