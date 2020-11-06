@@ -8,9 +8,6 @@ import {
   CharacteristicSetCallback,
   CharacteristicValue,
   HAP,
-  Int64,
-  Int8,
-  Logger,
   Logging,
   Service
 } from "homebridge";
@@ -31,9 +28,7 @@ export = (api: API) => {
 
 class WLED implements AccessoryPlugin{
 
-  public debug: boolean = false;
-
-  private log: Logger;
+  private readonly log: Logging;
   private readonly name: string;
   private readonly host: string;
   private lightOn = false;
@@ -48,8 +43,7 @@ class WLED implements AccessoryPlugin{
   private readonly switchService: Service;
 
   constructor(log: Logging, config: AccessoryConfig, api: API) {
-    Logger.setDebugEnabled(true);
-    this.log = new Logger();
+    this.log = log;
     this.name = config.name;
     this.host = config.host;
 
@@ -104,7 +98,7 @@ class WLED implements AccessoryPlugin{
         this.log.debug("\n--------------------------------------------------\n               BRIGHTNESS\n--------------------------------------------------");
         this.brightness = Math.floor(255 / 100 * (value as number));
         let colorArray = this.HSVtoRGB(this.hue / 360, this.saturation / 100, this.currentBrightnessToPercent()/100);
-        this.httpSendData(`http://${this.host}/json`, "POST", {"seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
+        this.httpSendData(`http://${this.host}/json`, "POST", {"bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
         this.log.debug("Brightness was set to: " + this.brightness);
         this.log.debug("\n--------------------------------------------------\n               END BRIGHTNESS\n--------------------------------------------------");
         callback();
@@ -143,7 +137,7 @@ class WLED implements AccessoryPlugin{
         this.turnOffAllEffects();
         let colorArray = this.HSVtoRGB(this.hue / 360, this.saturation / 100, this.currentBrightnessToPercent()/100);
         this.log.debug(colorArray);
-        this.httpSendData(`http://${this.host}/json`, "POST", {"seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
+        this.httpSendData(`http://${this.host}/json`, "POST", {"bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
         this.log.debug("Saturation was set to: " + this.saturation + "%");
         this.log.debug("\n--------------------------------------------------\n              END SATURATION\n--------------------------------------------------");
         callback();
