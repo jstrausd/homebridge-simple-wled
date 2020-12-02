@@ -12,6 +12,7 @@ To make the accessory visible in your HomeKIT App you have to add the accessory 
 {
     "accessory": "WLED",
     "name": "CUSTOM_NAME_OF_ACCESSORY",
-    "host": "IP_ADRESS_OF_YOUR_WLED_STRIP"
+    "host": "IP_ADRESS_OF_YOUR_WLED_STRIP",
+    "log": true
 }
 ```
