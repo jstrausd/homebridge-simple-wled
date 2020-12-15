@@ -13,6 +13,34 @@ To make the accessory visible in your HomeKIT App you have to add the accessory 
     "accessory": "WLED",
     "name": "CUSTOM_NAME_OF_ACCESSORY",
     "host": "IP_ADRESS_OF_YOUR_WLED_STRIP",
+    "effectName": "Rainbow Runner",
     "log": true
+}
+```
+
+## 💡 Configure own Effect-Switch
+Until all effects are supported together, i have implemented a simple way to use every effect.
+You just have to add a option "effectName" to your config.json and add as value a supported effect of your choice.
+All effects are found under [Effects-List - WLED](https://github.com/Aircoookie/WLED/wiki/List-of-effects-and-palettes)
+(Just use Names from the Effects and not from the palettes!!)
+
+sample additional option:
+
+```
+{
+    "accessory": "WLED",
+    "name": "CUSTOM_NAME_OF_ACCESSORY",
+    "host": "IP_ADRESS_OF_YOUR_WLED_STRIP",
+    "effectName": "Merry Christmas",
+}
+```
+
+
+```
+{
+    "accessory": "WLED",
+    "name": "CUSTOM_NAME_OF_ACCESSORY",
+    "host": "IP_ADRESS_OF_YOUR_WLED_STRIP",
+    "effectName": "Halloween Eyes",
 }
 ```

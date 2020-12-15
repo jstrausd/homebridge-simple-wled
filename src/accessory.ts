@@ -45,12 +45,14 @@ class WLED implements AccessoryPlugin{
   private readonly debug: boolean = false;
 
   private prodLogging = false;
+  private effectName = "Rainbow Runner";
 
 
   constructor(log: Logging, config: AccessoryConfig, api: API) {
     this.log = log;
     this.name = config.name;
     this.host = config.host;
+    this.effectName = config.effectName;
 
     this.prodLogging = config.log;
 
@@ -59,7 +61,7 @@ class WLED implements AccessoryPlugin{
     log.info("Setting up Accessory " + this.name + " with Host-IP: " + this.host);
 
     this.lightService = new hap.Service.Lightbulb(this.name);
-    this.switchService = new hap.Service.Switch("Rainbow Runner");
+    this.switchService = new hap.Service.Switch(this.effectName);
 
     this.registerCharacteristicOnOff();
     this.registerCharacteristicBrightness();
@@ -184,7 +186,7 @@ class WLED implements AccessoryPlugin{
     this.switchService.getCharacteristic(hap.Characteristic.On)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
         if(this.debug)
-          this.log("Current state of the rainbow runner was returned: " + (this.rainbowRunnerOn ? "ON" : "OFF"));
+          this.log("Current state of the " + this.effectName + " effect was returned: " + (this.rainbowRunnerOn ? "ON" : "OFF"));
         callback(undefined, this.rainbowRunnerOn);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
@@ -198,10 +200,10 @@ class WLED implements AccessoryPlugin{
           this.turnOffAllEffects();
 
         if(this.debug)
-          this.log("Rainbow Runner state was set to: " + (this.rainbowRunnerOn ? "ON" : "OFF"));
+          this.log(this.effectName + " effect state was set to: " + (this.rainbowRunnerOn ? "ON" : "OFF"));
 
         if(this.prodLogging)
-          this.log("Effect 'Rainbow Runner' set to: " + (this.rainbowRunnerOn ? "ON" : "OFF"));
+          this.log("Effect '" + this.effectName + "' set to: " + (this.rainbowRunnerOn ? "ON" : "OFF"));
         callback();
       });
 
@@ -215,9 +217,9 @@ class WLED implements AccessoryPlugin{
   }
 
   turnOnRainbowEffect(): void {
-    this.httpSendData(`http://${this.host}/json`, "POST", { "seg": [{ "fx": this.getEffectIdByName("Rainbow Runner"), "sx": 20 }] }, (error: any, resp: any) => { if (error) return; });
+    this.httpSendData(`http://${this.host}/json`, "POST", { "seg": [{ "fx": this.getEffectIdByName(this.effectName), "sx": 20 }] }, (error: any, resp: any) => { if (error) return; });
     if(this.debug)
-      this.log("Turned on Rainbow Runner!");
+      this.log("Turned on " + this.effectName + " effect!");
   }
 
   turnOffAllEffects(): void {
@@ -227,7 +229,11 @@ class WLED implements AccessoryPlugin{
   }
 
   getEffectIdByName(name: string): number {
-    return this.getAllEffects().indexOf(name);
+    let effectNr = this.getAllEffects().indexOf(name);
+    if(effectNr >= 0)
+      return effectNr;
+    else
+      return this.getAllEffects().indexOf("Rainbow Runner");
   }
 
   getAllEffects(): Array<string> {
@@ -284,8 +290,7 @@ class WLED implements AccessoryPlugin{
 
     status.on("error", function (error: any, response: any) {
       if (error) {
-        that.log("Error while polling from WLED " + that.name + " (" + that.host  + ")");
-        that.log(error);
+        that.log("Error while polling WLED " + that.name + " (" + that.host  + ")");
         return;
       }
     })
