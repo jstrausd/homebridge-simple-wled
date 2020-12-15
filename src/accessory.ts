@@ -47,6 +47,8 @@ class WLED implements AccessoryPlugin{
   private prodLogging = false;
   private effectName = "Rainbow Runner";
 
+  private isOffline = false;
+
 
   constructor(log: Logging, config: AccessoryConfig, api: API) {
     this.log = log;
@@ -266,9 +268,13 @@ class WLED implements AccessoryPlugin{
   startPolling(): void {
     var that = this;
     var status = polling(function (done: any) {
-      that.httpSendData(`http://${that.host}/json/state`, "GET", {}, (error: any, response: any) => {
-        done(error, response);
-      })
+      if(!that.isOffline)
+        that.httpSendData(`http://${that.host}/json/state`, "GET", {}, (error: any, response: any) => {
+          done(error, response);
+        })
+      else
+        that.isOffline = false;
+
     }, { longpolling: true, interval: 6000, longpollEventName: "statuspoll" });
 
     status.on("poll", function (response: any) {
@@ -291,6 +297,7 @@ class WLED implements AccessoryPlugin{
     status.on("error", function (error: any, response: any) {
       if (error) {
         that.log("Error while polling WLED " + that.name + " (" + that.host  + ")");
+        that.isOffline = true;
         return;
       }
     })
