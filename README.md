@@ -44,3 +44,14 @@ sample additional option:
     "effectName": "Halloween Eyes",
 }
 ```
+
+## Contributing
+If you have any idea, feel free to fork it and submit your changes back to me.
+
+## Donation
+You can also support me developing this plugin by buying me a coffee and giving me motivation to keep this plugin up to date and continue developing.
+
+Thanks to everyone who is donating to me.
+
+[![](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=98XBPRTNF8BSC)
+
