@@ -54,6 +54,5 @@ You can also support me developing this plugin by buying me a coffee and giving 
 Thanks to everyone who is donating to me.
 
 [![](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=98XBPRTNF8BSC)
-
 [![](https://jstrauss.at/media/buy_me_a_coffee.png)](https://www.buymeacoffee.com/jstrausd)
 
