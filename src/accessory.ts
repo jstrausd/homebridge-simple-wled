@@ -27,27 +27,40 @@ export = (api: API) => {
   api.registerAccessory("WLED", WLED);
 };
 
-class WLED implements AccessoryPlugin{
+class WLED implements AccessoryPlugin {
 
   private readonly log: Logging;
   private readonly name: string;
   private readonly host: string;
+
+  private readonly lightService: Service;
+  private readonly informationService: Service;
+
+  /*        LOGGING / DEBUGGING         */
+  private readonly debug: boolean = false;
+  private readonly prodLogging: boolean = false;
+  /*       END LOGGING / DEBUGGING      */
+
+
+  private effectName = "Rainbow Runner";
+  private effectId = 33;
+  private disableEffectSwitch = false;
+  private switchService: any;
+
+
+  /*  LOCAL CACHING VARIABLES */
+
+  private isOffline = false;
+
   private lightOn = false;
   private brightness = -1;
   private hue = 100;
   private saturation = 100;
+  private colorArray = [];
 
   private rainbowRunnerOn = false;
 
-  private readonly lightService: Service;
-  private readonly informationService: Service;
-  private readonly switchService: Service;
-  private readonly debug: boolean = false;
-
-  private prodLogging = false;
-  private effectName = "Rainbow Runner";
-
-  private isOffline = false;
+  /*  END LOCAL CACHING VARIABLES */
 
 
   constructor(log: Logging, config: AccessoryConfig, api: API) {
@@ -55,6 +68,7 @@ class WLED implements AccessoryPlugin{
     this.name = config.name;
     this.host = config.host;
     this.effectName = config.effectName;
+    this.effectId = this.getEffectIdByName(this.effectName);
 
     this.prodLogging = config.log;
 
@@ -62,15 +76,24 @@ class WLED implements AccessoryPlugin{
 
     log.info("Setting up Accessory " + this.name + " with Host-IP: " + this.host);
 
+    if (config.disableEffectSwitch != undefined) {
+      this.disableEffectSwitch = config.disableEffectSwitch;
+      if (this.disableEffectSwitch) {
+        this.log("Effect-Switch disabled");
+      }
+    }
+
     this.lightService = new hap.Service.Lightbulb(this.name);
-    this.switchService = new hap.Service.Switch(this.effectName);
+
+    if (!this.disableEffectSwitch) {
+      this.switchService = new hap.Service.Switch(this.effectName);
+      this.registerCharacteristicEffectSwitch();
+    }
 
     this.registerCharacteristicOnOff();
     this.registerCharacteristicBrightness();
     this.registerCharacteristicSaturation();
     this.registerCharacteristicHue();
-
-    this.registerCharacteristicRainbowRunner();
 
     this.informationService = new hap.Service.AccessoryInformation()
       .setCharacteristic(hap.Characteristic.Manufacturer, "Jonathan Strauss")
@@ -84,9 +107,9 @@ class WLED implements AccessoryPlugin{
 
     this.lightService.getCharacteristic(hap.Characteristic.On)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
-        if(this.debug)
+        if (this.debug)
           this.log("Current state of the switch was returned: " + (this.lightOn ? "ON" : "OFF"));
-        
+
         callback(undefined, this.lightOn);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
@@ -96,7 +119,7 @@ class WLED implements AccessoryPlugin{
         } else {
           this.httpSendData(`http://${this.host}/win&T=0`, "GET", {}, (error: any, response: any) => { if (error) return; });
         }
-        if(this.debug)
+        if (this.debug)
           this.log("Switch state was set to: " + (this.lightOn ? "ON" : "OFF"));
         callback();
       });
@@ -107,21 +130,21 @@ class WLED implements AccessoryPlugin{
 
     this.lightService.getCharacteristic(hap.Characteristic.Brightness)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
-        if(this.debug)
+        if (this.debug)
           this.log("Current brightness: " + this.brightness);
         callback(undefined, this.currentBrightnessToPercent());
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
-        if(this.debug)
+        if (this.debug)
           this.log("\n--------------------------------------------------\n               BRIGHTNESS\n--------------------------------------------------");
-        
+
         this.brightness = Math.floor(255 / 100 * (value as number));
         this.httpSetBrightness();
 
-        if(this.prodLogging)
+        if (this.prodLogging)
           this.log("Set brightness to " + value + "%");
 
-        if(this.debug){
+        if (this.debug) {
           this.log("Brightness was set to: " + this.brightness);
           this.log("\n--------------------------------------------------\n               END BRIGHTNESS\n--------------------------------------------------");
         }
@@ -134,27 +157,30 @@ class WLED implements AccessoryPlugin{
 
     this.lightService.getCharacteristic(hap.Characteristic.Hue)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
-        if(this.debug)
+        let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
+        this.colorArray = colorArray;
+        if (this.debug)
           this.log("Current hue: " + this.hue + "%");
 
         callback(undefined, this.hue);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
-        if(this.debug)
+        if (this.debug)
           this.log("\n--------------------------------------------------\n               HUE\n--------------------------------------------------");
 
         this.hue = value as number;
         this.turnOffAllEffects();
-        let colorArray = this.HSVtoRGB(this.hue / 360, this.saturation / 100, this.currentBrightnessToPercent()/100);
-        if(this.debug)
+        let colorArray = this.HSVtoRGB(this.hue,this.saturation,this.currentBrightnessToPercent());
+        if (this.debug)
           this.log("HUE COLOR ARRAY: " + colorArray);
-        
-        if(this.prodLogging)
+
+        if (this.prodLogging)
           this.log("Changed color to " + colorArray);
 
-        this.httpSendData(`http://${this.host}/json`, "POST", {"bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
-        
-        if(this.debug){
+        this.httpSendData(`http://${this.host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
+        this.colorArray = colorArray;
+
+        if (this.debug) {
           this.log("Saturation was set to: " + this.saturation + "%");
           this.log("\n--------------------------------------------------\n              END SATURATION\n--------------------------------------------------");
           this.log("Hue was set to: " + this.hue + "%");
@@ -169,12 +195,12 @@ class WLED implements AccessoryPlugin{
 
     this.lightService.getCharacteristic(hap.Characteristic.Saturation)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
-        if(this.debug)
+        if (this.debug)
           this.log("Current saturation: " + this.saturation + "%");
         callback(undefined, this.saturation);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
-        if(this.debug)
+        if (this.debug)
           this.log("\n--------------------------------------------------\n               SATURATION\n--------------------------------------------------");
         this.saturation = value as number;
         this.turnOffAllEffects();
@@ -183,17 +209,17 @@ class WLED implements AccessoryPlugin{
 
   }
 
-  registerCharacteristicRainbowRunner(): void {
+  registerCharacteristicEffectSwitch(): void {
 
     this.switchService.getCharacteristic(hap.Characteristic.On)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
-        if(this.debug)
+        if (this.debug)
           this.log("Current state of the " + this.effectName + " effect was returned: " + (this.rainbowRunnerOn ? "ON" : "OFF"));
         callback(undefined, this.rainbowRunnerOn);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
         this.rainbowRunnerOn = value as boolean;
-        if(this.debug)
+        if (this.debug)
           this.log(value as boolean + "", this.rainbowRunnerOn);
 
         if (this.rainbowRunnerOn)
@@ -201,38 +227,39 @@ class WLED implements AccessoryPlugin{
         else
           this.turnOffAllEffects();
 
-        if(this.debug)
+        if (this.debug)
           this.log(this.effectName + " effect state was set to: " + (this.rainbowRunnerOn ? "ON" : "OFF"));
 
-        if(this.prodLogging)
+        if (this.prodLogging)
           this.log("Effect '" + this.effectName + "' set to: " + (this.rainbowRunnerOn ? "ON" : "OFF"));
         callback();
       });
 
   }
 
-  httpSetBrightness(){
-    let colorArray = this.HSVtoRGB(this.hue / 360, this.saturation / 100, this.currentBrightnessToPercent()/100);
-    if(this.debug)
+  httpSetBrightness() {
+    let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
+    this.colorArray = colorArray;
+    if (this.debug)
       this.log("COLOR ARRAY BRIGHTNESS: " + colorArray);
-    this.httpSendData(`http://${this.host}/json`, "POST", {"bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
+    this.httpSendData(`http://${this.host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
   }
 
   turnOnRainbowEffect(): void {
     this.httpSendData(`http://${this.host}/json`, "POST", { "seg": [{ "fx": this.getEffectIdByName(this.effectName), "sx": 20 }] }, (error: any, resp: any) => { if (error) return; });
-    if(this.debug)
+    if (this.debug)
       this.log("Turned on " + this.effectName + " effect!");
   }
 
   turnOffAllEffects(): void {
     this.httpSendData(`http://${this.host}/json`, "POST", { "seg": [{ "fx": 0, "sx": 0, "col": [255, 0, 0] }] }, (error: any, response: any) => { if (error) return; });
-    if(this.debug)
+    if (this.debug)
       this.log("Turned off Effects!");
   }
 
   getEffectIdByName(name: string): number {
     let effectNr = this.getAllEffects().indexOf(name);
-    if(effectNr >= 0)
+    if (effectNr >= 0)
       return effectNr;
     else
       return this.getAllEffects().indexOf("Rainbow Runner");
@@ -260,7 +287,9 @@ class WLED implements AccessoryPlugin{
     this.lightService.updateCharacteristic(hap.Characteristic.Brightness, this.currentBrightnessToPercent());
     this.lightService.updateCharacteristic(hap.Characteristic.Saturation, this.saturation);
     this.lightService.updateCharacteristic(hap.Characteristic.Hue, this.hue);
-    this.switchService.updateCharacteristic(hap.Characteristic.On, this.rainbowRunnerOn);
+
+    if (!this.disableEffectSwitch)
+      this.switchService.updateCharacteristic(hap.Characteristic.On, this.rainbowRunnerOn);
   }
 
 
@@ -268,7 +297,7 @@ class WLED implements AccessoryPlugin{
   startPolling(): void {
     var that = this;
     var status = polling(function (done: any) {
-      if(!that.isOffline)
+      if (!that.isOffline)
         that.httpSendData(`http://${that.host}/json/state`, "GET", {}, (error: any, response: any) => {
           done(error, response);
         })
@@ -285,18 +314,35 @@ class WLED implements AccessoryPlugin{
         that.log("Data-Bool: " + (response["data"]["seg"][0]["fx"] == 33 ? true : false));
         that.log("Current Switch State: " + that.switchService.getCharacteristic(hap.Characteristic.On).value);
       }*/
-      let rainbowRunnerOnData = (response["data"]["seg"][0]["fx"] == 33 ? true : false);
-      if (that.lightOn != response["data"]["on"] || that.brightness != response["data"]["bri"] || that.switchService.getCharacteristic(hap.Characteristic.On).value != rainbowRunnerOnData || that.rainbowRunnerOn != rainbowRunnerOnData) {
+      let rainbowRunnerOnData = (response["data"]["seg"][0]["fx"] == that.effectId ? true : false);
+      let effectSwitchState = (!that.disableEffectSwitch) ? that.switchService.getCharacteristic(hap.Characteristic.On).value != rainbowRunnerOnData : false;
+
+      let colorResponse = response["data"]["seg"][0]["col"][0];
+      colorResponse = [colorResponse[0], colorResponse[1], colorResponse[2]]
+
+      if (that.lightOn != response["data"]["on"] ||
+        that.brightness != response["data"]["bri"] ||
+        effectSwitchState ||
+        that.rainbowRunnerOn != rainbowRunnerOnData ||
+        !that.colorArraysEqual(colorResponse, that.colorArray)) {
+
+        if(that.prodLogging)
+          that.log("Updating WLED in HomeKIT (Because of Polling)")
+
         that.lightOn = response["data"]["on"];
+        that.rainbowRunnerOn = rainbowRunnerOnData;
+
+        that.saveColorArrayAsHSV(colorResponse);
+        that.colorArray = colorResponse;
         that.brightness = response["data"]["bri"];
-        that.rainbowRunnerOn = (response["data"]["seg"][0]["fx"] == 33 ? true : false)
+
         that.updateLight();
       }
     });
 
     status.on("error", function (error: any, response: any) {
       if (error) {
-        that.log("Error while polling WLED " + that.name + " (" + that.host  + ")");
+        that.log("Error while polling WLED " + that.name + " (" + that.host + ")");
         that.isOffline = true;
         return;
       }
@@ -329,24 +375,48 @@ class WLED implements AccessoryPlugin{
   }
 
   getServices(): Service[] {
-    return [
-      this.informationService,
-      this.lightService,
-      this.switchService,
-    ];
+    if (!this.disableEffectSwitch) {
+      return [
+        this.informationService,
+        this.lightService,
+        this.switchService,
+      ];
+    } else {
+      return [
+        this.informationService,
+        this.lightService
+      ];
+    }
   }
-
 
   currentBrightnessToPercent() {
     return Math.floor(100 / 255 * this.brightness);
   }
 
+  saveColorArrayAsHSV(colorArray: Array<number>): void {
+    let hsvArray = this.RGBtoHSV(colorArray[0], colorArray[1], colorArray[2]);
+    this.hue = Math.floor(hsvArray[0]*360);
+    this.saturation = Math.floor(hsvArray[1]*100);
+    this.brightness = Math.floor(hsvArray[2]*255);
+  }
+
+  colorArraysEqual(a: any, b: any): boolean {
+    if (a[0] == b[0] && a[1] == b[1] && a[2] == b[2])
+      return true;
+    return false;
+  }
+
+
   /* accepts parameters
   * h  Object = {h:x, s:y, v:z}
   * OR 
   * h, s, v
- */
+  */
   HSVtoRGB(h: any, s: any, v: any): any {
+    h = h/360;
+    s = s/100;
+    v = v/100;
+
     var r, g, b, i, f, p, q, t;
     if (arguments.length === 1) {
       s = h.s, v = h.v, h = h.h;
@@ -370,5 +440,35 @@ class WLED implements AccessoryPlugin{
       Math.round(b * 255)
     ];
   }
+
+  /* accepts parameters
+  * r  Object = {r:x, g:y, b:z}
+  * OR 
+  * r, g, b
+  */
+  RGBtoHSV(r: any, g: any, b: any): any {
+    if (arguments.length === 1) {
+      g = r.g, b = r.b, r = r.r;
+    }
+    var max = Math.max(r, g, b), min = Math.min(r, g, b),
+      d = max - min,
+      h,
+      s = (max === 0 ? 0 : d / max),
+      v = max / 255;
+
+    switch (max) {
+      case min: h = 0; break;
+      case r: h = (g - b) + d * (g < b ? 6 : 0); h /= 6 * d; break;
+      case g: h = (b - r) + d * 2; h /= 6 * d; break;
+      case b: h = (r - g) + d * 4; h /= 6 * d; break;
+    }
+
+    return [
+      h,
+      s,
+      v
+    ];
+  }
+
 
 }
