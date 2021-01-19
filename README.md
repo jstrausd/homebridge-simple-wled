@@ -45,6 +45,18 @@ sample additional option:
 }
 ```
 
+If you want to disable the Effect-Switch to just use the normal "LightBulb" function. You are able to add an option to the config to disable it:
+
+```
+{
+    "accessory": "WLED",
+    "name": "CUSTOM_NAME_OF_ACCESSORY",
+    "host": "IP_ADRESS_OF_YOUR_WLED_STRIP",
+    "effectName": "Halloween Eyes",
+    "disableEffectSwitch": true
+}
+```
+
 ## Contributing
 If you have any idea, feel free to fork it and submit your changes back to me.
 
