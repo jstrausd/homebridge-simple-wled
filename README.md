@@ -67,5 +67,4 @@ Thanks to everyone who is donating to me.
 
 MoneyPool for new Graphics-Card (or other PC-Hardware):
 [![](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://paypal.me/pools/c/8wny2NuaNs)
-[![](https://jstrauss.at/media/buy_me_a_beer.png)](https://www.buymeacoffee.com/jstrausd)
 
