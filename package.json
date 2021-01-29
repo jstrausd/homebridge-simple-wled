@@ -2,7 +2,7 @@
   "name": "homebridge-simple-wled",
   "version": "1.1.0",
   "description": "An accessory plugin for homebridge to support WLED Strips",
-  "main": "dist/wled_advanced.js",
+  "main": "dist/index.js",
   "scripts": {
     "clean": "rimraf ./dist",
     "build": "rimraf ./dist && tsc",
