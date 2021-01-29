@@ -12,10 +12,19 @@ To make the accessory visible in your HomeKIT App you have to add the Platform-A
     "platforms": [
         {
             "platform": "WLED",
-            "name": "LED-Tisch",
-            "host": "10.0.0.52",
-            "log": true,
-            "effects": ["Rainbow Runner", "Merry Christmas", "Circus"]
+            "wleds": [
+                {
+                    "name": "LED-Tisch",
+                    "host": "10.0.0.52",
+                    "effects": ["Rainbow Runner", "Circus"],
+                    "log": true
+                },
+                {
+                    "name": "LED-Kasten",
+                    "host": "10.0.0.53",
+                    "effects": ["Rainbow Runner", "Circus"],
+                }
+            ]
         }
     ]
 ```
@@ -24,8 +33,7 @@ After editing the config, restart your HomeBridge Server and add the accessory m
 If you encounter some issues when adding the accessory to the homekit app, open an issue in GitHub...
 
 ## 💡 Configure own Effect-Switch
-Until all effects are supported together, i have implemented a simple way to use every effect.
-You just have to add a option "effects" to your config.json and add as value a comma-seperated list of supported effects of your choice.
+To use your own effects you have an option "effects" you can add to your config.json and add as value a comma-seperated list of supported effects of your choice.
 All effects are found under [Effects-List - WLED](https://github.com/Aircoookie/WLED/wiki/List-of-effects-and-palettes)
 (Just use Names from the Effects and not from the palettes!!)
 
@@ -33,11 +41,16 @@ sample additional option:
 
 ```
     "platforms": [
-        {
+                {
             "platform": "WLED",
-            "name": "LED-Tisch",
-            "host": "10.0.0.52",
-            "effects": ["Rainbow Runner", "Merry Christmas", "Circus"]
+            "wleds": [
+                {
+                    "name": "LED-Tisch",
+                    "host": "10.0.0.52",
+                    "effects": ["Rainbow Runner", "Circus", "Merry Christmas", "Fireworks"],
+                    "log": false
+                }
+            ]
         }
     ]
 ```
