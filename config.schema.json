@@ -1,0 +1,53 @@
+{
+    "pluginAlias": "WLED",
+    "pluginType": "platform",
+    "singular": true,
+    "headerDisplay": "homebridge-simple-wled: Nearly complete HomeKit support for WLED. See the [Github project page](https://github.com/jstrausd/homebridge-simple-wled) for more documentation.",
+    "footerDisplay": "",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "wleds": {
+                "type": "array",
+                "title": "wleds",
+                "items": {
+                    "type": "object",
+                    "title": "WLED instance",
+                    "properties": {
+                        "name": {
+                            "title": "WLED name",
+                            "description": "Name for this WLED instance.",
+                            "type": "string",
+                            "placeholder": "Enter WLED name",
+                            "required": true
+                        },
+                        "host": {
+                            "title": "WLED IP Address",
+                            "description": "IP address for this WLED instance.",
+                            "type": "string",
+                            "format": "ipv4",
+                            "placeholder": "Enter WLED IP address",
+                            "required": true
+                        },
+                        "effects": {
+                            "title": "Effects",
+                            "description": "Effects for this Doorbird",
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "title": "Effect",
+                                "required": false
+                            }
+                        },
+                        "log": {
+                            "title": "Logging",
+                            "description": "Enable Logging/Debugging option",
+                            "type": "boolean",
+                            "required": false
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
