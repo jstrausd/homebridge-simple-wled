@@ -31,7 +31,7 @@
                         },
                         "effects": {
                             "title": "Effects",
-                            "description": "Effects for this Doorbird",
+                            "description": "Effects for this WLED instance",
                             "type": "array",
                             "items": {
                                 "type": "string",

@@ -72,7 +72,7 @@ export class WLED {
     this.api = platform.api;
     this.hap = this.api.hap;
     this.Characteristic = this.api.hap.Characteristic;
-    const uuid = this.api.hap.uuid.generate('homebridge:wled' + this.name + Math.random());
+    const uuid = this.api.hap.uuid.generate('homebridge:wled' + this.name);
 
     if ((this.wledAccessory = this.platform.accessories.find((x: PlatformAccessory) => x.UUID === uuid)!) === undefined) {
 
