@@ -74,6 +74,8 @@ If you want to turn off the WLED when turning off the WLED-Effect-Switch then yo
     ]
 ```
 
+If you want to disable the Effect-Switch to just use the normal "LightBulb" function. You can just remove the "effects" option in the config.json.
+
 ## 💡💡💡 Adding multiple WLED-hosts to a single accessory
 If you want to control multiple WLED-hosts with a single accessory, you have to set the "host" option to a list/array as below:
 Note: The first WLED-host will act like a main-WLED, so for example, you change the color of the first WLED (10.0.0.52) via the WEB-Panel of the WLED it also changes for the following WLEDS (10.0.0.53, 10.0.0.54,...).
@@ -92,8 +94,6 @@ Note: The first WLED-host will act like a main-WLED, so for example, you change 
         }
     ]
 ```
-
-If you want to disable the Effect-Switch to just use the normal "LightBulb" function. You can just remove the "effects" option in the config.json.
 
 ## Contributing
 If you have any idea, feel free to fork it and submit your changes back to me.
