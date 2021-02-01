@@ -21,7 +21,7 @@ To make the accessory visible in your HomeKIT App you have to add the Platform-A
                 },
                 {
                     "name": "LED-Kasten",
-                    "host": "10.0.0.53",
+                    "host": ["10.0.0.53", "10.0.0.54"],
                     "effects": ["Rainbow Runner", "Circus"],
                 }
             ]
@@ -49,6 +49,44 @@ sample additional option:
                     "host": "10.0.0.52",
                     "effects": ["Rainbow Runner", "Circus", "Merry Christmas", "Fireworks"],
                     "log": false
+                }
+            ]
+        }
+    ]
+```
+
+If you want to turn off the WLED when turning off the WLED-Effect-Switch then you can add the option "turnOffWledWithEffect", (default: false)
+
+
+```
+    "platforms": [
+                {
+            "platform": "WLED",
+            "wleds": [
+                {
+                    "name": "LED-Tisch",
+                    "host": "10.0.0.52",
+                    "effects": ["Rainbow Runner", "Circus", "Merry Christmas", "Fireworks"],
+                    "turnOffWledWithEffect": true
+                }
+            ]
+        }
+    ]
+```
+
+## 💡💡💡 Adding multiple WLED-hosts to a single accessory
+If you want to control multiple WLED-hosts with a single accessory, you have to set the "host" option to a list/array as below:
+Note: The first WLED-host will act like a main-WLED, so for example, you change the color of the first WLED (10.0.0.52) via the WEB-Panel of the WLED it also changes for the following WLEDS (10.0.0.53, 10.0.0.54,...).
+
+```
+    "platforms": [
+                {
+            "platform": "WLED",
+            "wleds": [
+                {
+                    "name": "LED-Tisch",
+                    "host": ["10.0.0.52", "10.0.0.53", "10.0.0.54"],
+                    "effects": ["Rainbow Runner", "Circus", "Merry Christmas", "Fireworks"],
                 }
             ]
         }
