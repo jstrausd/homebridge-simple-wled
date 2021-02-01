@@ -10,7 +10,7 @@ import {
   Service,
   HAP,
 } from "homebridge";
-import {PLUGIN_NAME} from "./settings";
+import { PLUGIN_NAME } from "./settings";
 import { WLEDPlatform } from "./wled-platform";
 
 const axios = require('axios').default;
@@ -27,7 +27,7 @@ export class WLED {
   private wledAccessory: PlatformAccessory;
 
   private name: string;
-  private host: string;
+  private host: Array<string>;
 
   private lightService: Service;
   private effectsService: any;
@@ -37,10 +37,10 @@ export class WLED {
   private readonly prodLogging: boolean = true;
   /*       END LOGGING / DEBUGGING      */
 
-
-  private effectName = "Rainbow Runner";
   private effectId = 33;
+  private multipleHosts: boolean;
   private disableEffectSwitch: boolean;
+  private turnOffWledWithEffect: boolean;
 
 
   /*  LOCAL CACHING VARIABLES */
@@ -64,9 +64,17 @@ export class WLED {
   constructor(platform: WLEDPlatform, wledConfig: any) {
     this.log = platform.log;
     this.name = wledConfig.name || 'WLED';
-    this.host = wledConfig.host || '127.0.0.1';
     this.prodLogging = wledConfig.log || false;
     this.disableEffectSwitch = (wledConfig.effects) ? false : true;
+    this.turnOffWledWithEffect = wledConfig.turnOffWledWithEffect || false;
+
+    if (wledConfig.host instanceof Array && wledConfig.host.length > 1) {
+      this.host = wledConfig.host;
+      this.multipleHosts = true;
+    } else {
+      this.host = [wledConfig.host];
+      this.multipleHosts = false;
+    }
 
     this.platform = platform;
     this.api = platform.api;
@@ -77,11 +85,12 @@ export class WLED {
     if ((this.wledAccessory = this.platform.accessories.find((x: PlatformAccessory) => x.UUID === uuid)!) === undefined) {
 
       this.wledAccessory = new this.api.platformAccessory(this.name, uuid);
-      this.wledAccessory.category = this.api.hap.Categories.LIGHTBULB;
 
     }
 
-    this.log.info("Setting up Accessory " + this.name + " with Host-IP: " + this.host);
+    this.log.info("Setting up Accessory " + this.name + " with Host-IP: " + this.host + ((this.multipleHosts) ? " Multiple WLED-Hosts configured" : " Single WLED-Host configured"));
+
+    this.wledAccessory.category = this.api.hap.Categories.LIGHTBULB;
 
     this.lightService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb);
     this.lightService.setCharacteristic(this.Characteristic.Name, this.name);
@@ -105,7 +114,8 @@ export class WLED {
 
     this.api.updatePlatformAccessories([this.wledAccessory]);
     this.log.info("WLED Strip finished initializing!");
-    this.startPolling();
+    
+    this.startPolling(this.host[0]);
   }
 
   registerCharacteristicOnOff(): void {
@@ -120,9 +130,9 @@ export class WLED {
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
         this.lightOn = value as boolean;
         if (this.lightOn) {
-          this.httpSendData(`http://${this.host}/win&T=1`, "GET", {}, (error: any, response: any) => { if (error) return; });
+          this.turnOnWLED();
         } else {
-          this.httpSendData(`http://${this.host}/win&T=0`, "GET", {}, (error: any, response: any) => { if (error) return; });
+          this.turnOffWLED();
         }
         if (this.debug)
           this.log("Switch state was set to: " + (this.lightOn ? "ON" : "OFF"));
@@ -140,8 +150,6 @@ export class WLED {
         callback(undefined, this.currentBrightnessToPercent());
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
-        if (this.debug)
-          this.log("\n--------------------------------------------------\n               BRIGHTNESS\n--------------------------------------------------");
 
         this.brightness = Math.floor(255 / 100 * (value as number));
         this.httpSetBrightness();
@@ -149,10 +157,6 @@ export class WLED {
         if (this.prodLogging)
           this.log("Set brightness to " + value + "%");
 
-        if (this.debug) {
-          this.log("Brightness was set to: " + this.brightness);
-          this.log("\n--------------------------------------------------\n               END BRIGHTNESS\n--------------------------------------------------");
-        }
         callback();
       });
 
@@ -170,27 +174,18 @@ export class WLED {
         callback(undefined, this.hue);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
-        if (this.debug)
-          this.log("\n--------------------------------------------------\n               HUE\n--------------------------------------------------");
 
         this.hue = value as number;
         this.turnOffAllEffects();
         let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
-        if (this.debug)
-          this.log("HUE COLOR ARRAY: " + colorArray);
 
-        if (this.prodLogging)
-          this.log("Changed color to " + colorArray);
-
-        this.httpSendData(`http://${this.host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
+        this.host.forEach((host) => {
+          this.httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) this.log(error); });
+          if (this.prodLogging)
+            this.log("Changed color to " + colorArray + " on host " + host);
+        })
         this.colorArray = colorArray;
 
-        if (this.debug) {
-          this.log("Saturation was set to: " + this.saturation + "%");
-          this.log("\n--------------------------------------------------\n              END SATURATION\n--------------------------------------------------");
-          this.log("Hue was set to: " + this.hue + "%");
-          this.log("\n--------------------------------------------------\n              END HUE\n--------------------------------------------------");
-        }
         callback();
       });
 
@@ -205,8 +200,6 @@ export class WLED {
         callback(undefined, this.saturation);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
-        if (this.debug)
-          this.log("\n--------------------------------------------------\n               SATURATION\n--------------------------------------------------");
         this.saturation = value as number;
         this.turnOffAllEffects();
         callback();
@@ -219,9 +212,16 @@ export class WLED {
       .on(CharacteristicEventTypes.SET, (newValue: any, callback: any) => {
 
         if (newValue == 0) {
-          this.turnOffAllEffects();
+          if (this.turnOffWledWithEffect) {
+            this.turnOffWLED();
+          } else {
+            this.turnOffAllEffects();
+          }
           this.effectsAreActive = false;
         } else {
+          if (this.turnOffWledWithEffect) {
+            this.turnOnWLED();
+          }
           this.effectsAreActive = true;
           this.effectsService.setCharacteristic(this.Characteristic.ActiveIdentifier, this.lastPlayedEffect);
         }
@@ -238,7 +238,9 @@ export class WLED {
         if (this.effectsAreActive) {
 
           let effectID = this.effects[parseInt(newValue.toString())];
-          this.httpSendData(`http://${this.host}/json`, "POST", { "seg": [{ "fx": effectID, "sx": 20 }] }, (error: any, resp: any) => { if (error) return; });
+          this.host.forEach((host) => {
+            this.httpSendData(`http://${host}/json`, "POST", { "seg": [{ "fx": effectID, "sx": 20 }] }, (error: any, resp: any) => { if (error) return; });
+          });
           if (this.prodLogging)
             this.log("Turned on " + newValue + " effect!");
           this.lastPlayedEffect = parseInt(newValue.toString());
@@ -272,12 +274,28 @@ export class WLED {
     this.colorArray = colorArray;
     if (this.debug)
       this.log("COLOR ARRAY BRIGHTNESS: " + colorArray);
-    this.httpSendData(`http://${this.host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
+    this.host.forEach((host) => {
+      this.httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
+    });
   }
 
+  turnOffWLED(): void {
+    this.host.forEach((host) => {
+      this.httpSendData(`http://${host}/win&T=0`, "GET", {}, (error: any, response: any) => { if (error) return; });
+    });
+  }
+
+  turnOnWLED(): void {
+    this.host.forEach((host) => {
+      this.httpSendData(`http://${host}/win&T=1`, "GET", {}, (error: any, response: any) => { if (error) return; });
+    });
+  }
 
   turnOffAllEffects(): void {
-    this.httpSendData(`http://${this.host}/json`, "POST", { "seg": [{ "fx": 0, "sx": 0, "col": this.colorArray }] }, (error: any, response: any) => { if (error) return; });
+    this.host.forEach((host) => {
+      this.httpSendData(`http://${host}/json`, "POST", { "seg": [{ "fx": 0, "sx": 0, "col": this.colorArray }] }, (error: any, response: any) => { if (error) return; });
+    });
+    this.effectsService.updateCharacteristic(this.Characteristic.Active, 0);
     if (this.debug)
       this.log("Turned off Effects!");
   }
@@ -316,17 +334,17 @@ export class WLED {
 
 
 
-  startPolling(): void {
+  startPolling(host:string): void {
     var that = this;
     var status = polling(function (done: any) {
       if (!that.isOffline)
-        that.httpSendData(`http://${that.host}/json/state`, "GET", {}, (error: any, response: any) => {
+        that.httpSendData(`http://${host}/json/state`, "GET", {}, (error: any, response: any) => {
           done(error, response);
         })
       else
         that.isOffline = false;
 
-    }, { longpolling: true, interval: 6000, longpollEventName: "statuspoll" });
+    }, { longpolling: true, interval: 6000, longpollEventName: "statuspoll" + host });
 
     status.on("poll", function (response: any) {
       /*if(that.debug){
@@ -346,13 +364,21 @@ export class WLED {
         !that.colorArraysEqual(colorResponse, that.colorArray)) {
 
         if (that.prodLogging)
-          that.log("Updating WLED in HomeKIT (Because of Polling)")
+          that.log("Updating WLED in HomeKIT (Because of Polling) " + host)
 
         that.lightOn = response["data"]["on"];
 
         that.saveColorArrayAsHSV(colorResponse);
         that.colorArray = colorResponse;
         that.brightness = response["data"]["bri"];
+
+        if(that.multipleHosts){
+          that.host.forEach((host) => {
+            that.httpSendData(`http://${host}/json`, "POST", { "bri": that.brightness, "seg": [{ "col": [colorResponse] }] }, (error: any, response: any) => { if (error) that.log(error); });
+            if (that.prodLogging)
+            that.log("Changed color to " + colorResponse + " on host " + host);
+          })
+        }
 
         that.updateLight();
       }
