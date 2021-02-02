@@ -1,6 +1,6 @@
 {
   "name": "homebridge-simple-wled",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "An accessory plugin for homebridge to support WLED Strips",
   "main": "dist/index.js",
   "scripts": {
