@@ -114,7 +114,7 @@ export class WLED {
 
     this.api.updatePlatformAccessories([this.wledAccessory]);
     this.log.info("WLED Strip finished initializing!");
-    
+
     this.startPolling(this.host[0]);
   }
 
@@ -151,11 +151,11 @@ export class WLED {
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
 
-        this.brightness = Math.floor(255 / 100 * (value as number));
+        this.brightness = Math.round(255 / 100 * (value as number));
         this.httpSetBrightness();
 
         if (this.prodLogging)
-          this.log("Set brightness to " + value + "%");
+          this.log("Set brightness to " + value + "% " + this.brightness);
 
         callback();
       });
@@ -180,7 +180,7 @@ export class WLED {
         let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
 
         this.host.forEach((host) => {
-          this.httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) this.log(error); });
+          this.httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) this.log("Error while changing color of WLED " + this.name + " (" + host + ")"); });
           if (this.prodLogging)
             this.log("Changed color to " + colorArray + " on host " + host);
         })
@@ -270,25 +270,33 @@ export class WLED {
   }
 
   httpSetBrightness() {
+    if (this.brightness == 0) {
+      this.turnOffWLED();
+      return;
+    }
     let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
     this.colorArray = colorArray;
     if (this.debug)
       this.log("COLOR ARRAY BRIGHTNESS: " + colorArray);
+
     this.host.forEach((host) => {
-      this.httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) return; });
-    });
+      this.httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [this.colorArray] }] }, (error: any, response: any) => { if (error) return; });
+    }); 
   }
 
   turnOffWLED(): void {
     this.host.forEach((host) => {
       this.httpSendData(`http://${host}/win&T=0`, "GET", {}, (error: any, response: any) => { if (error) return; });
     });
+    this.lightOn = false;
   }
 
   turnOnWLED(): void {
     this.host.forEach((host) => {
       this.httpSendData(`http://${host}/win&T=1`, "GET", {}, (error: any, response: any) => { if (error) return; });
     });
+    this.lightService.updateCharacteristic(this.hap.Characteristic.Brightness, 100);
+    this.lightOn = true;
   }
 
   turnOffAllEffects(): void {
@@ -334,7 +342,7 @@ export class WLED {
 
 
 
-  startPolling(host:string): void {
+  startPolling(host: string): void {
     var that = this;
     var status = polling(function (done: any) {
       if (!that.isOffline)
@@ -344,42 +352,37 @@ export class WLED {
       else
         that.isOffline = false;
 
-    }, { longpolling: true, interval: 6000, longpollEventName: "statuspoll" + host });
+    }, { longpolling: true, interval: 4500, longpollEventName: "statuspoll" + host });
 
     status.on("poll", function (response: any) {
-      /*if(that.debug){
-        that.log("Response: " + JSON.stringify(response["data"]));
-        that.log("RainbowRunnerOn: " + that.rainbowRunnerOn);
-        that.log("Data: " + JSON.stringify(response["data"]["seg"][0]["fx"]));
-        that.log("Data-Bool: " + (response["data"]["seg"][0]["fx"] == 33 ? true : false));
-        that.log("Current Switch State: " + that.switchService.getCharacteristic(hap.Characteristic.On).value);
-      }*/
-      let rainbowRunnerOnData = (response["data"]["seg"][0]["fx"] == that.effectId ? true : false);
+      //let rainbowRunnerOnData = (response["data"]["seg"][0]["fx"] == that.effectId ? true : false);
 
       let colorResponse = response["data"]["seg"][0]["col"][0];
       colorResponse = [colorResponse[0], colorResponse[1], colorResponse[2]]
 
-      if (that.lightOn != response["data"]["on"] ||
+      if (that.lightOn && response["data"]["on"] && (
         that.brightness != response["data"]["bri"] ||
-        !that.colorArraysEqual(colorResponse, that.colorArray)) {
+        !that.colorArraysEqual(colorResponse, that.colorArray))) {
 
         if (that.prodLogging)
           that.log("Updating WLED in HomeKIT (Because of Polling) " + host)
 
-        that.lightOn = response["data"]["on"];
-
         that.saveColorArrayAsHSV(colorResponse);
         that.colorArray = colorResponse;
+
         that.brightness = response["data"]["bri"];
 
-        if(that.multipleHosts){
+        if (that.multipleHosts) {
           that.host.forEach((host) => {
-            that.httpSendData(`http://${host}/json`, "POST", { "bri": that.brightness, "seg": [{ "col": [colorResponse] }] }, (error: any, response: any) => { if (error) that.log(error); });
+            that.httpSendData(`http://${host}/json`, "POST", { "bri": that.brightness, "seg": [{ "col": [colorResponse] }] }, (error: any, response: any) => { if (error) that.log("Error while polling WLED " + that.name + " (" + that.host + ")"); });
             if (that.prodLogging)
-            that.log("Changed color to " + colorResponse + " on host " + host);
+              that.log("Changed color to " + colorResponse + " on host " + host);
           })
         }
 
+        that.updateLight();
+      }else{
+        that.lightOn = response["data"]["on"];
         that.updateLight();
       }
     });
@@ -415,7 +418,7 @@ export class WLED {
   }
 
   currentBrightnessToPercent() {
-    return Math.floor(100 / 255 * this.brightness);
+    return Math.round(100 / 255 * this.brightness);
   }
 
   saveColorArrayAsHSV(colorArray: Array<number>): void {
