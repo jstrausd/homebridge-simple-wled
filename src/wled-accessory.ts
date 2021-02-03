@@ -303,7 +303,9 @@ export class WLED {
     this.host.forEach((host) => {
       this.httpSendData(`http://${host}/json`, "POST", { "seg": [{ "fx": 0, "sx": 0, "col": this.colorArray }] }, (error: any, response: any) => { if (error) return; });
     });
-    this.effectsService.updateCharacteristic(this.Characteristic.Active, 0);
+    if(!this.disableEffectSwitch)
+      this.effectsService.updateCharacteristic(this.Characteristic.Active, 0);
+
     if (this.debug)
       this.log("Turned off Effects!");
   }
@@ -374,7 +376,7 @@ export class WLED {
 
         if (that.multipleHosts) {
           that.host.forEach((host) => {
-            that.httpSendData(`http://${host}/json`, "POST", { "bri": that.brightness, "seg": [{ "col": [colorResponse] }] }, (error: any, response: any) => { if (error) that.log("Error while polling WLED " + that.name + " (" + that.host + ")"); });
+            that.httpSendData(`http://${host}/json`, "POST", { "bri": that.brightness, "seg": [{ "col": [colorResponse] }] }, (error: any, response: any) => { if (error) that.log("Error while polling WLED (brightness) " + that.name + " (" + that.host + ")"); });
             if (that.prodLogging)
               that.log("Changed color to " + colorResponse + " on host " + host);
           })
@@ -389,6 +391,7 @@ export class WLED {
 
     status.on("error", function (error: any, response: any) {
       if (error) {
+        that.log(error);
         that.log("Error while polling WLED " + that.name + " (" + that.host + ")");
         that.isOffline = true;
         return;
