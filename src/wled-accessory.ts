@@ -391,7 +391,6 @@ export class WLED {
 
     status.on("error", function (error: any, response: any) {
       if (error) {
-        that.log(error);
         that.log("Error while polling WLED " + that.name + " (" + that.host + ")");
         that.isOffline = true;
         return;
