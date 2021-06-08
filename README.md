@@ -2,6 +2,9 @@
 
 Hombridge Plugin for WLED Strip ([WLED-Project by Aircoookie](https://github.com/Aircoookie/WLED))
 
+### ❓HELP
+For faster support and Informations join my discord https://discord.gg/qpbUtZCB2H
+
 ### ⚙️ Installation / NPM Package
 For downloading and installing the Plugin NPM is used in Homebridge: [Link to NPM Package](https://www.npmjs.com/package/homebridge-simple-wled)
 
