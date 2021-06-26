@@ -30,6 +30,7 @@ export class WLED {
   private host: Array<string>;
 
   private lightService: Service;
+  private speedService: any;
   private effectsService: any;
 
   /*        LOGGING / DEBUGGING         */
@@ -41,6 +42,7 @@ export class WLED {
   private multipleHosts: boolean;
   private disableEffectSwitch: boolean;
   private turnOffWledWithEffect: boolean;
+  private showEffectControl: boolean;
 
 
   /*  LOCAL CACHING VARIABLES */
@@ -52,6 +54,8 @@ export class WLED {
   private hue = 100;
   private saturation = 100;
   private colorArray = [255, 0, 0];
+
+  private effectSpeed = 15;
 
   private effectsAreActive = false;
   private effects: Array<number> = [];
@@ -67,6 +71,8 @@ export class WLED {
     this.prodLogging = wledConfig.log || false;
     this.disableEffectSwitch = (wledConfig.effects) ? false : true;
     this.turnOffWledWithEffect = wledConfig.turnOffWledWithEffect || false;
+    this.effectSpeed = wledConfig.defaultEffectSpeed || 15;
+    this.showEffectControl = wledConfig.showEffectControl ? true : false;
 
     if (wledConfig.host instanceof Array && wledConfig.host.length > 1) {
       this.host = wledConfig.host;
@@ -92,8 +98,12 @@ export class WLED {
 
     this.wledAccessory.category = this.api.hap.Categories.LIGHTBULB;
 
-    this.lightService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb);
-    this.lightService.setCharacteristic(this.Characteristic.Name, this.name);
+    this.lightService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, this.name, 'LIGHT');
+
+    if (this.showEffectControl) {
+      this.speedService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Effect Speed', 'SPEED');
+      this.lightService.addLinkedService(this.speedService);
+    }
 
     this.registerCharacteristicOnOff();
     this.registerCharacteristicBrightness();
@@ -159,6 +169,25 @@ export class WLED {
 
         callback();
       });
+
+    if (this.showEffectControl) {
+      // EFFECT SPEED
+      this.speedService.getCharacteristic(this.hap.Characteristic.Brightness)
+        .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
+          callback(undefined, Math.round(this.effectSpeed / 2.55));
+
+        }).on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+
+          this.effectSpeed = value as number;
+          this.effectSpeed = Math.round(this.effectSpeed * 2.55);
+          if (this.prodLogging)
+            this.log("Speed set to " + this.effectSpeed);
+
+          this.effectsService.setCharacteristic(this.Characteristic.ActiveIdentifier, this.lastPlayedEffect);
+
+          callback();
+        });
+    }
 
   }
 
@@ -239,10 +268,11 @@ export class WLED {
 
           let effectID = this.effects[parseInt(newValue.toString())];
           this.host.forEach((host) => {
-            this.httpSendData(`http://${host}/json`, "POST", { "seg": [{ "fx": effectID, "sx": 20 }] }, (error: any, resp: any) => { if (error) return; });
+            this.httpSendData(`http://${host}/json`, "POST", { "seg": [{ "fx": effectID, "sx": this.effectSpeed }] }, (error: any, resp: any) => { if (error) return; });
           });
           if (this.prodLogging)
             this.log("Turned on " + newValue + " effect!");
+
           this.lastPlayedEffect = parseInt(newValue.toString());
         }
         callback(null);
@@ -281,7 +311,7 @@ export class WLED {
 
     this.host.forEach((host) => {
       this.httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [this.colorArray] }] }, (error: any, response: any) => { if (error) return; });
-    }); 
+    });
   }
 
   turnOffWLED(): void {
@@ -303,7 +333,7 @@ export class WLED {
     this.host.forEach((host) => {
       this.httpSendData(`http://${host}/json`, "POST", { "seg": [{ "fx": 0, "sx": 0, "col": this.colorArray }] }, (error: any, response: any) => { if (error) return; });
     });
-    if(!this.disableEffectSwitch)
+    if (!this.disableEffectSwitch)
       this.effectsService.updateCharacteristic(this.Characteristic.Active, 0);
 
     if (this.debug)
@@ -383,7 +413,7 @@ export class WLED {
         }
 
         that.updateLight();
-      }else{
+      } else {
         that.lightOn = response["data"]["on"];
         that.updateLight();
       }
