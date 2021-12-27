@@ -109,6 +109,12 @@ export class WLED {
       this.lightService.addLinkedService(this.speedService);
     }
 
+    if (this.AmbilightSwitch) {
+      this.ambilightService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'AmbilightTest');
+      this.lightService.addLinkedService(this.ambilightService);
+      this.registerCharacteristicAmbilightOnOff();
+    }
+
     this.registerCharacteristicOnOff();
     this.registerCharacteristicBrightness();
     this.registerCharacteristicSaturation();
@@ -121,12 +127,6 @@ export class WLED {
       this.registerCharacteristicActive();
       this.registerCharacteristicActiveIdentifier();
       this.addEffectsInputSources(wledConfig.effects);
-    }
-
-    if (this.AmbilightSwitch) {
-      this.AmbilightSwitch = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'AmbilightTest');
-      this.ambilightService.addLinkedService(this.AmbilightSwitch);
-      this.registerCharacteristicAmbilightOnOff();
     }
 
     this.api.publishExternalAccessories(PLUGIN_NAME, [this.wledAccessory]);
