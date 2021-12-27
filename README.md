@@ -2,9 +2,6 @@
 
 Hombridge Plugin for WLED Strip ([WLED-Project by Aircoookie](https://github.com/Aircoookie/WLED))
 
-
-### test
-
 ### ❓HELP
 For faster support and Informations join my discord https://discord.gg/qpbUtZCB2H
 
