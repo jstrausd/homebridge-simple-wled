@@ -2,6 +2,27 @@ This repository is forked from jstrausd/homebridge-simple-wled
 
 I will try to add a switch for turning on and off the Ambilight feature
 
+### Its now possible to add a switch for Ambilight, i dont know yet if this works or not
+
+
+```
+    "platforms": [
+                {
+            "platform": "WLED",
+            "wleds": [
+                {
+                    "name": "LED-Tisch",
+                    "host": "10.0.0.52",
+                    "effects": ["Rainbow Runner", "Circus", "Merry Christmas", "Fireworks"],
+                    "log": false,
+                    "AmbilightSwitch": true
+                }
+            ]
+        }
+    ]
+```
+
+
 
 
 # Homebridge Simple WLED
