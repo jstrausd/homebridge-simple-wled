@@ -1,4 +1,4 @@
-import {API} from "homebridge";
+import {API} from 'homebridge';
 import {WLEDPlatform} from './wled-platform';
 import {PLUGIN_NAME, PLATFORM_NAME} from "./settings";
 
