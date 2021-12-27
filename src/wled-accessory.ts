@@ -9,7 +9,7 @@ import {
   CharacteristicSetCallback,
   Service,
   HAP,
-} from 'homebridge';
+} from "homebridge";
 import { PLUGIN_NAME } from "./settings";
 import { WLEDPlatform } from "./wled-platform";
 
