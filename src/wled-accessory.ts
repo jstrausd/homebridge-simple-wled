@@ -9,7 +9,7 @@ import {
   CharacteristicSetCallback,
   Service,
   HAP,
-} from "homebridge";
+} from 'homebridge';
 import { PLUGIN_NAME } from "./settings";
 import { WLEDPlatform } from "./wled-platform";
 
@@ -110,7 +110,6 @@ export class WLED {
     }
 
     this.registerCharacteristicOnOff();
-    this.registerCharacteristicAmbilightOnOff();
     this.registerCharacteristicBrightness();
     this.registerCharacteristicSaturation();
     this.registerCharacteristicHue();
@@ -126,6 +125,7 @@ export class WLED {
 
     if (this.AmbilightSwitch) {
       this.AmbilightSwitch = this.wledAccessory.addService(this.api.hap.Service.Lightbulb);
+      this.registerCharacteristicAmbilightOnOff();
     }
 
     this.api.publishExternalAccessories(PLUGIN_NAME, [this.wledAccessory]);
