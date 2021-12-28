@@ -1,8 +1,13 @@
 This repository is forked from jstrausd/homebridge-simple-wled
 
-I will try to add a switch for turning on and off the Ambilight feature
+Thanks for letting me fork your plugin!
 
-### Its now possible to add a switch for Ambilight, i dont know yet if this works or not
+Heres the original repository: 
+
+https://github.com/jstrausd/homebridge-simple-wled
+
+### Its now possible to add a switch for Ambilight, just add "AmbilightSwitch":true/false to your config.json.
+### the status of the switch is also updated just like the other Switches/Brightness/etc
 
 
 ```
