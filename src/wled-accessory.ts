@@ -484,7 +484,7 @@ export class WLED {
 
         that.updateLight();
       } else {
-        that.ambilightOn = response["data"]["lor"];
+        that.ambilightOn = !response["data"]["lor"];
         that.updateLight();
       }
 
