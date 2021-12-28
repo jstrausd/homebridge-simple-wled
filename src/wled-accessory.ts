@@ -110,7 +110,7 @@ export class WLED {
     }
 
     if (this.AmbilightSwitch) {
-      this.ambilightService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'AmbilightTest', 'AMBI');
+      this.ambilightService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Ambilight', 'AMBI');
       this.lightService.addLinkedService(this.ambilightService);
       this.registerCharacteristicAmbilightOnOff();
     }
