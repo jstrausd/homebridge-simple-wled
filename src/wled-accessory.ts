@@ -466,6 +466,29 @@ export class WLED {
         that.lightOn = response["data"]["on"];
         that.updateLight();
       }
+
+
+      if (that.ambilightOn && response["data"]["lor"])  {
+
+        if (that.prodLogging)
+          that.log("Updating WLED in HomeKIT (Because of Polling) " + host)
+
+        if (that.multipleHosts) {
+          that.host.forEach((host) => {
+            that.httpSendData(`http://${host}/json`, "POST", { "lor": that.ambilightOn}, (error: any, response: any) => { if (error) that.log("Error while polling WLED (brightness) " + that.name + " (" + that.host + ")"); });
+            if (that.prodLogging)
+              that.log("Changed color to " + colorResponse + " on host " + host);
+          })
+        }
+
+        that.updateLight();
+      } else {
+        that.ambilightOn = response["data"]["lor"];
+        that.updateLight();
+      }
+
+
+
     });
 
     status.on("error", function (error: any, response: any) {
