@@ -469,6 +469,8 @@ export class WLED {
 
 
       if (that.ambilightOn && response["data"]["lor"])  {
+        that.ambilightOn = response["data"]["lor"];
+        that.log(response["data"]["lor"]);
 
         if (that.prodLogging)
           that.log("Updating WLED in HomeKIT (Because of Polling) " + host)
