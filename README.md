@@ -1,35 +1,3 @@
-This repository is forked from jstrausd/homebridge-simple-wled
-
-Thanks for letting me fork your plugin!
-
-Heres the original repository: 
-
-https://github.com/jstrausd/homebridge-simple-wled
-
-### Its now possible to add a switch for Ambilight, just add "AmbilightSwitch":true/false to your config.json.
-### the status of the switch is also updated just like the other Switches/Brightness/etc
-
-
-```
-    "platforms": [
-                {
-            "platform": "WLED",
-            "wleds": [
-                {
-                    "name": "LED-Tisch",
-                    "host": "10.0.0.52",
-                    "effects": ["Rainbow Runner", "Circus", "Merry Christmas", "Fireworks"],
-                    "log": false,
-                    "AmbilightSwitch": true
-                }
-            ]
-        }
-    ]
-```
-
-
-
-
 # Homebridge Simple WLED
 
 Hombridge Plugin for WLED Strip ([WLED-Project by Aircoookie](https://github.com/Aircoookie/WLED))
@@ -174,7 +142,7 @@ Note: The first WLED-host will act like a main-WLED, so for example, you change 
     ]
 ```
 
-## Adding a switch for Ambilight/Adalight or Ambilight/Moodlight
+## Adding a switch for Ambilight/Moodlight or Adalight/Moodlight
 If you want to add a switch, to switch between Ambilight and Moodlight just add ' "AmbilightSwitch": true ' without ' ' to 
 your config. This works also with multiple IP-Adresses and effects like described above.
 
