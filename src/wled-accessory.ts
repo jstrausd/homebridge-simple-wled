@@ -30,6 +30,7 @@ export class WLED {
   private host: Array<string>;
 
   private lightService: Service;
+  private ambilightService: Service;
   private speedService: any;
   private effectsService: any;
 
@@ -43,6 +44,7 @@ export class WLED {
   private disableEffectSwitch: boolean;
   private turnOffWledWithEffect: boolean;
   private showEffectControl: boolean;
+  private AmbilightSwitch: boolean;
 
 
   /*  LOCAL CACHING VARIABLES */
@@ -50,6 +52,7 @@ export class WLED {
   private isOffline = false;
 
   private lightOn = false;
+  private ambilightOn = false;
   private brightness = -1;
   private hue = 100;
   private saturation = 100;
@@ -73,6 +76,7 @@ export class WLED {
     this.turnOffWledWithEffect = wledConfig.turnOffWledWithEffect || false;
     this.effectSpeed = wledConfig.defaultEffectSpeed || 15;
     this.showEffectControl = wledConfig.showEffectControl ? true : false;
+    this.AmbilightSwitch = wledConfig.AmbilightSwitch ? true : false;
 
     if (wledConfig.host instanceof Array && wledConfig.host.length > 1) {
       this.host = wledConfig.host;
@@ -103,6 +107,12 @@ export class WLED {
     if (this.showEffectControl) {
       this.speedService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Effect Speed', 'SPEED');
       this.lightService.addLinkedService(this.speedService);
+    }
+
+    if (this.AmbilightSwitch) {
+      this.ambilightService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Ambilight', 'AMBI');
+      this.lightService.addLinkedService(this.ambilightService);
+      this.registerCharacteristicAmbilightOnOff();
     }
 
     this.registerCharacteristicOnOff();
@@ -146,6 +156,29 @@ export class WLED {
         }
         if (this.debug)
           this.log("Switch state was set to: " + (this.lightOn ? "ON" : "OFF"));
+        callback();
+      });
+
+  }
+
+  registerCharacteristicAmbilightOnOff(): void {
+
+    this.ambilightService.getCharacteristic(this.hap.Characteristic.On)
+      .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
+        if (this.debug)
+          this.log("Current state of the switch was returned: " + (this.ambilightOn ? "ON" : "OFF"));
+
+        callback(undefined, this.ambilightOn);
+      })
+      .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+        this.ambilightOn = value as boolean;
+        if (this.ambilightOn) {
+          this.turnOnAmbilight();
+        } else {
+          this.turnOffAmbilight();
+        }
+        if (this.debug)
+          this.log("Switch state was set to: " + (this.ambilightOn ? "ON" : "OFF"));
         callback();
       });
 
@@ -329,6 +362,21 @@ export class WLED {
     this.lightOn = true;
   }
 
+  turnOffAmbilight(): void {
+    this.host.forEach((host) => {
+      this.httpSendData(`http://${host}/win&LO=1`, "GET", {}, (error: any, response: any) => { if (error) return; });
+    });
+    this.ambilightOn = false;
+  }
+
+  turnOnAmbilight(): void {
+    this.host.forEach((host) => {
+      this.httpSendData(`http://${host}/win&LO=0`, "GET", {}, (error: any, response: any) => { if (error) return; });
+    });
+    this.lightService.updateCharacteristic(this.hap.Characteristic.Brightness, 100);
+    this.ambilightOn = true;
+  }
+
   turnOffAllEffects(): void {
     this.host.forEach((host) => {
       this.httpSendData(`http://${host}/json`, "POST", { "seg": [{ "fx": 0, "sx": 0, "col": this.colorArray }] }, (error: any, response: any) => { if (error) return; });
@@ -367,6 +415,7 @@ export class WLED {
 
   updateLight(): void {
     this.lightService.updateCharacteristic(this.hap.Characteristic.On, this.lightOn);
+    this.ambilightService.updateCharacteristic(this.hap.Characteristic.On, this.ambilightOn);
     this.lightService.updateCharacteristic(this.hap.Characteristic.Brightness, this.currentBrightnessToPercent());
     this.lightService.updateCharacteristic(this.hap.Characteristic.Saturation, this.saturation);
     this.lightService.updateCharacteristic(this.hap.Characteristic.Hue, this.hue);
@@ -417,6 +466,30 @@ export class WLED {
         that.lightOn = response["data"]["on"];
         that.updateLight();
       }
+
+
+      if (that.ambilightOn && response["data"]["lor"])  {
+        that.ambilightOn = !response["data"]["lor"];
+
+        if (that.prodLogging)
+          that.log("Updating WLED in HomeKIT (Because of Polling) " + host)
+
+        if (that.multipleHosts) {
+          that.host.forEach((host) => {
+            that.httpSendData(`http://${host}/json`, "POST", { "lor": that.ambilightOn}, (error: any, response: any) => { if (error) that.log("Error while polling WLED (brightness) " + that.name + " (" + that.host + ")"); });
+            if (that.prodLogging)
+              that.log("Changed color to " + colorResponse + " on host " + host);
+          })
+        }
+
+        that.updateLight();
+      } else {
+        that.ambilightOn = !response["data"]["lor"];
+        that.updateLight();
+      }
+
+
+
     });
 
     status.on("error", function (error: any, response: any) {
