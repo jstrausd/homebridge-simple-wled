@@ -9,7 +9,9 @@ import {
   CharacteristicSetCallback,
   Service,
   HAP,
+  AccessoryEventTypes
 } from "homebridge";
+import { print } from "util";
 import { PLUGIN_NAME } from "./settings";
 import { WLEDPlatform } from "./wled-platform";
 
@@ -33,8 +35,10 @@ export class WLED {
   private speedService: any;
   private effectsService: any;
 
+  private statusPolling: any;
+
   /*        LOGGING / DEBUGGING         */
-  private readonly debug: boolean = false;
+  private readonly debug: boolean = true;
   private readonly prodLogging: boolean = true;
   /*       END LOGGING / DEBUGGING      */
 
@@ -138,6 +142,7 @@ export class WLED {
         callback(undefined, this.lightOn);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+
         this.lightOn = value as boolean;
         if (this.lightOn) {
           this.turnOnWLED();
@@ -146,6 +151,7 @@ export class WLED {
         }
         if (this.debug)
           this.log("Switch state was set to: " + (this.lightOn ? "ON" : "OFF"));
+
         callback();
       });
 
@@ -161,19 +167,27 @@ export class WLED {
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
 
+        this.statusPolling.pause();
+
         this.brightness = Math.round(255 / 100 * (value as number));
         this.httpSetBrightness();
 
         if (this.prodLogging)
           this.log("Set brightness to " + value + "% " + this.brightness);
 
+        this.statusPolling.resume();
         callback();
       });
 
     if (this.showEffectControl) {
       // EFFECT SPEED
+      this.speedService.getCharacteristic(this.hap.Characteristic.On)
+        .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
+          callback(undefined, this.effectSpeed > 0);
+        });
       this.speedService.getCharacteristic(this.hap.Characteristic.Brightness)
         .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
+
           callback(undefined, Math.round(this.effectSpeed / 2.55));
 
         }).on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
@@ -195,6 +209,7 @@ export class WLED {
 
     this.lightService.getCharacteristic(this.hap.Characteristic.Hue)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
+
         let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
         this.colorArray = colorArray;
         if (this.debug)
@@ -208,11 +223,16 @@ export class WLED {
         this.turnOffAllEffects();
         let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
 
+        this.statusPolling.pause();
+
         this.host.forEach((host) => {
           this.httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) this.log("Error while changing color of WLED " + this.name + " (" + host + ")"); });
           if (this.prodLogging)
             this.log("Changed color to " + colorArray + " on host " + host);
         })
+
+        this.statusPolling.resume();
+
         this.colorArray = colorArray;
 
         callback();
@@ -256,7 +276,7 @@ export class WLED {
         }
 
         this.effectsService.updateCharacteristic(this.Characteristic.Active, newValue);
-        callback(null);
+        callback();
       });
   }
 
@@ -275,7 +295,7 @@ export class WLED {
 
           this.lastPlayedEffect = parseInt(newValue.toString());
         }
-        callback(null);
+        callback();
       });
   }
 
@@ -306,11 +326,21 @@ export class WLED {
     }
     let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
     this.colorArray = colorArray;
+
     if (this.debug)
       this.log("COLOR ARRAY BRIGHTNESS: " + colorArray);
 
     this.host.forEach((host) => {
-      this.httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [this.colorArray] }] }, (error: any, response: any) => { if (error) return; });
+      this.httpSendData(`http://${host}/json`, "POST",
+        {
+          "bri": this.brightness,
+          "seg": [
+            {
+              "col": [this.colorArray]
+            }
+          ]
+        },
+        (error: any, response: any) => { if (error) return; });
     });
   }
 
@@ -338,6 +368,18 @@ export class WLED {
 
     if (this.debug)
       this.log("Turned off Effects!");
+  }
+
+  setAllServicesToNoResponse(): void {
+    this.log("Device is offline: " + this.isOffline)
+    this.lightService.getCharacteristic(this.hap.Characteristic.On).updateValue(new Error("Device is offline"));
+
+    if (this.showEffectControl) {
+      this.speedService.getCharacteristic(this.hap.Characteristic.On).updateValue(new Error("Device is offline"));
+    }
+    if (!this.disableEffectSwitch) {
+      this.effectsService.getCharacteristic(this.hap.Characteristic.Active).updateValue(new Error("Device is offline"));
+    }
   }
 
   getEffectIdByName(name: string): number {
@@ -376,17 +418,19 @@ export class WLED {
 
   startPolling(host: string): void {
     var that = this;
-    var status = polling(function (done: any) {
-      if (!that.isOffline)
-        that.httpSendData(`http://${host}/json/state`, "GET", {}, (error: any, response: any) => {
-          done(error, response);
-        })
-      else
-        that.isOffline = false;
+    this.statusPolling = polling(function (done: any) {
+      that.httpSendData(`http://${host}/json/state`, "GET", {}, (error: any, response: any) => {
+        if (error) {
+          that.isOffline = true;
+        } else {
+          that.isOffline = false;
+        }
+        done(error, response);
+      })
 
     }, { longpolling: true, interval: 4500, longpollEventName: "statuspoll" + host });
 
-    status.on("poll", function (response: any) {
+    this.statusPolling.on("poll", function (response: any) {
       //let rainbowRunnerOnData = (response["data"]["seg"][0]["fx"] == that.effectId ? true : false);
 
       let colorResponse = response["data"]["seg"][0]["col"][0];
@@ -419,10 +463,11 @@ export class WLED {
       }
     });
 
-    status.on("error", function (error: any, response: any) {
-      if (error) {
+    this.statusPolling.on("error", function (error: any, response: any) {
+      if (error && that.prodLogging) {
         that.log("Error while polling WLED " + that.name + " (" + that.host + ")");
         that.isOffline = true;
+        that.setAllServicesToNoResponse();
         return;
       }
     })

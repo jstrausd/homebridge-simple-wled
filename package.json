@@ -8,7 +8,7 @@
     "build": "rimraf ./dist && tsc",
     "prepublishOnly": "npm run build",
     "postpublish": "npm run clean",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "sudo npm run-script build && sudo npm link"
   },
   "author": "Jonathan Strauss <office@jstrauss.at>",
   "engines": {
