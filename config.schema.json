@@ -44,6 +44,12 @@
                             "description": "Enable Logging/Debugging option",
                             "type": "boolean",
                             "required": false
+                        },
+                        "ambilightSwitch": {
+                            "title": "Ambilight Switch",
+                            "description": "Enable Ambilight Switch",
+                            "type": "boolean",
+                            "required": false
                         }
                     }
                 }

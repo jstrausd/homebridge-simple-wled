@@ -30,9 +30,9 @@ export class WLED {
   private host: Array<string>;
 
   private lightService: Service;
-  private ambilightService: Service;
-  private speedService: any;
-  private effectsService: any;
+  private ambilightService!: Service;
+  private speedService!: Service;
+  private effectsService!: Service;
 
   /*        LOGGING / DEBUGGING         */
   private readonly debug: boolean = false;
@@ -44,7 +44,7 @@ export class WLED {
   private disableEffectSwitch: boolean;
   private turnOffWledWithEffect: boolean;
   private showEffectControl: boolean;
-  private AmbilightSwitch: boolean;
+  private ambilightSwitch: boolean;
 
 
   /*  LOCAL CACHING VARIABLES */
@@ -76,7 +76,7 @@ export class WLED {
     this.turnOffWledWithEffect = wledConfig.turnOffWledWithEffect || false;
     this.effectSpeed = wledConfig.defaultEffectSpeed || 15;
     this.showEffectControl = wledConfig.showEffectControl ? true : false;
-    this.AmbilightSwitch = wledConfig.AmbilightSwitch ? true : false;
+    this.ambilightSwitch = wledConfig.ambilightSwitch ? true : false;
 
     if (wledConfig.host instanceof Array && wledConfig.host.length > 1) {
       this.host = wledConfig.host;
@@ -109,7 +109,7 @@ export class WLED {
       this.lightService.addLinkedService(this.speedService);
     }
 
-    if (this.AmbilightSwitch) {
+    if (this.ambilightSwitch) {
       this.ambilightService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Ambilight', 'AMBI');
       this.lightService.addLinkedService(this.ambilightService);
       this.registerCharacteristicAmbilightOnOff();

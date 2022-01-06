@@ -142,9 +142,10 @@ Note: The first WLED-host will act like a main-WLED, so for example, you change 
     ]
 ```
 
-## Adding a switch for Ambilight/Moodlight or Adalight/Moodlight
-If you want to add a switch, to switch between Ambilight and Moodlight just add ' "AmbilightSwitch": true ' without ' ' to 
-your config. This works also with multiple IP-Adresses and effects like described above.
+## 🌦 Adding a switch for Ambilight/Moodlight or Adalight/Moodlight
+If you want to add a switch, to switch between Ambilight and Moodlight you have to add the "ambilightSwitch" option. This works also with multiple IP-Adresses and effects like described above.
+
+If not specified, it's default off/false
 
 ```
     "platforms": [
@@ -156,7 +157,7 @@ your config. This works also with multiple IP-Adresses and effects like describe
                     "host": "10.0.0.52",
                     "effects": ["Rainbow Runner", "Circus", "Merry Christmas", "Fireworks"],
                     "log": false,
-                    "AmbilightSwitch": true
+                    "ambilightSwitch": true
                 }
             ]
         }
@@ -171,6 +172,7 @@ You can also support me developing this plugin by buying me a coffee and giving 
 
 Thanks to everyone who is donating to me.
 
-MoneyPool for new Graphics-Card (or other PC-Hardware):
-[![](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://paypal.me/pools/c/8wny2NuaNs)
+Buy me a coffee to stay motivated for programming :D
+<br>
+<a href="https://www.buymeacoffee.com/jstrausd" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/arial-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
