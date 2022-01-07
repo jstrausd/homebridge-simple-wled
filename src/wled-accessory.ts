@@ -1,3 +1,4 @@
+import { debug } from "console";
 import {
   PlatformConfig,
   API,
@@ -35,7 +36,7 @@ export class WLED {
   private effectsService!: Service;
 
   /*        LOGGING / DEBUGGING         */
-  private readonly debug: boolean = false;
+  private readonly debug: boolean = true;
   private readonly prodLogging: boolean = true;
   /*       END LOGGING / DEBUGGING      */
 
@@ -148,14 +149,17 @@ export class WLED {
         callback(undefined, this.lightOn);
       })
       .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
-        this.lightOn = value as boolean;
-        if (this.lightOn) {
+        let tempLightOn = value as boolean;
+        if (tempLightOn && !this.lightOn) {
           this.turnOnWLED();
-        } else {
+          if (this.debug)
+            this.log("Light was turned on!");
+        } else if(!tempLightOn && this.lightOn){
           this.turnOffWLED();
+          if (this.debug)
+            this.log("Light was turned off!");
         }
-        if (this.debug)
-          this.log("Switch state was set to: " + (this.lightOn ? "ON" : "OFF"));
+        this.lightOn = tempLightOn;
         callback();
       });
 
@@ -415,10 +419,12 @@ export class WLED {
 
   updateLight(): void {
     this.lightService.updateCharacteristic(this.hap.Characteristic.On, this.lightOn);
-    this.ambilightService.updateCharacteristic(this.hap.Characteristic.On, this.ambilightOn);
     this.lightService.updateCharacteristic(this.hap.Characteristic.Brightness, this.currentBrightnessToPercent());
     this.lightService.updateCharacteristic(this.hap.Characteristic.Saturation, this.saturation);
     this.lightService.updateCharacteristic(this.hap.Characteristic.Hue, this.hue);
+
+    if(this.ambilightService)
+      this.ambilightService.updateCharacteristic(this.hap.Characteristic.On, this.ambilightOn);
   }
 
 
@@ -494,6 +500,8 @@ export class WLED {
 
     status.on("error", function (error: any, response: any) {
       if (error) {
+        if(that.debug)
+          that.log(error)
         that.log("Error while polling WLED " + that.name + " (" + that.host + ")");
         that.isOffline = true;
         return;
