@@ -66,8 +66,6 @@ export class WLED {
 
   /*  END LOCAL CACHING VARIABLES */
 
-
-
   constructor(platform: WLEDPlatform, wledConfig: any, loadedEffects: Array<string>) {
     this.log = platform.log;
     this.name = wledConfig.name || 'WLED';
@@ -434,7 +432,6 @@ export class WLED {
     }, { longpolling: true, interval: 4500, longpollEventName: "statuspoll" + host });
 
     status.on("poll", function (response: any) {
-      //let rainbowRunnerOnData = (response["data"]["seg"][0]["fx"] == that.effectId ? true : false);
 
       let colorResponse = response["data"]["seg"][0]["col"][0];
       colorResponse = [colorResponse[0], colorResponse[1], colorResponse[2]]
