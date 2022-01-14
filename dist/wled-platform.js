@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WLEDPlatform = void 0;
 const wled_accessory_1 = require("./wled-accessory");
+const utils_1 = require("./utils");
 class WLEDPlatform {
     constructor(log, config, api) {
         this.accessories = [];
@@ -27,7 +28,11 @@ class WLEDPlatform {
                 this.log("No host or IP address has been configured.");
                 return;
             }
-            this.wleds.push(new wled_accessory_1.WLED(this, wled));
+            (0, utils_1.loadEffects)(wled.host).then((effects) => {
+                this.wleds.push(new wled_accessory_1.WLED(this, wled, effects));
+            }).catch((error) => {
+                console.log(error);
+            });
         }
     }
 }

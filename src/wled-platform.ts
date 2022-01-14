@@ -1,5 +1,6 @@
 import { API, APIEvent, DynamicPlatformPlugin, Logging, PlatformAccessory, PlatformConfig } from "homebridge";
 import { WLED } from "./wled-accessory";
+import { loadEffects } from "./utils";
 
 export class WLEDPlatform implements DynamicPlatformPlugin {
 
@@ -40,7 +41,13 @@ export class WLEDPlatform implements DynamicPlatformPlugin {
         return;
       }
 
-      this.wleds.push(new WLED(this, wled));
+      loadEffects(wled.host).then((effects) => {
+        this.wleds.push(new WLED(this, wled, effects));
+      }).catch((error) => {
+        console.log(error) 
+      });
+
+
     }
   }
 

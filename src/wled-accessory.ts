@@ -1,6 +1,4 @@
-import { debug } from "console";
 import {
-  PlatformConfig,
   API,
   CharacteristicEventTypes,
   Logging,
@@ -13,8 +11,8 @@ import {
 } from "homebridge";
 import { PLUGIN_NAME } from "./settings";
 import { WLEDPlatform } from "./wled-platform";
+import { httpSendData } from "./utils";
 
-const axios = require('axios').default;
 const polling = require("polling-to-event");
 
 export class WLED {
@@ -36,8 +34,8 @@ export class WLED {
   private effectsService!: Service;
 
   /*        LOGGING / DEBUGGING         */
-  private readonly debug: boolean = true;
-  private readonly prodLogging: boolean = true;
+  private readonly debug: boolean = false;
+  private readonly prodLogging: boolean = false;
   /*       END LOGGING / DEBUGGING      */
 
   private effectId = 33;
@@ -62,6 +60,7 @@ export class WLED {
   private effectSpeed = 15;
 
   private effectsAreActive = false;
+  private cachedAllEffects: Array<string> = [];
   private effects: Array<number> = [];
   private lastPlayedEffect: number = 0;
 
@@ -69,7 +68,7 @@ export class WLED {
 
 
 
-  constructor(platform: WLEDPlatform, wledConfig: any) {
+  constructor(platform: WLEDPlatform, wledConfig: any, loadedEffects: Array<string>) {
     this.log = platform.log;
     this.name = wledConfig.name || 'WLED';
     this.prodLogging = wledConfig.log || false;
@@ -78,6 +77,8 @@ export class WLED {
     this.effectSpeed = wledConfig.defaultEffectSpeed || 15;
     this.showEffectControl = wledConfig.showEffectControl ? true : false;
     this.ambilightSwitch = wledConfig.ambilightSwitch ? true : false;
+
+    this.cachedAllEffects = loadedEffects
 
     if (wledConfig.host instanceof Array && wledConfig.host.length > 1) {
       this.host = wledConfig.host;
@@ -122,6 +123,7 @@ export class WLED {
     this.registerCharacteristicHue();
 
     if (!this.disableEffectSwitch) {
+      // LOAD ALL EFFECTS FROM HOST
       this.effectsService = this.wledAccessory.addService(this.api.hap.Service.Television);
       this.effectsService.setCharacteristic(this.Characteristic.ConfiguredName, "Effects");
 
@@ -154,7 +156,7 @@ export class WLED {
           this.turnOnWLED();
           if (this.debug)
             this.log("Light was turned on!");
-        } else if(!tempLightOn && this.lightOn){
+        } else if (!tempLightOn && this.lightOn) {
           this.turnOffWLED();
           if (this.debug)
             this.log("Light was turned off!");
@@ -246,7 +248,7 @@ export class WLED {
         let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
 
         this.host.forEach((host) => {
-          this.httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) this.log("Error while changing color of WLED " + this.name + " (" + host + ")"); });
+          httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) this.log("Error while changing color of WLED " + this.name + " (" + host + ")"); });
           if (this.prodLogging)
             this.log("Changed color to " + colorArray + " on host " + host);
         })
@@ -305,7 +307,7 @@ export class WLED {
 
           let effectID = this.effects[parseInt(newValue.toString())];
           this.host.forEach((host) => {
-            this.httpSendData(`http://${host}/json`, "POST", { "seg": [{ "fx": effectID, "sx": this.effectSpeed }] }, (error: any, resp: any) => { if (error) return; });
+            httpSendData(`http://${host}/json`, "POST", { "seg": [{ "fx": effectID, "sx": this.effectSpeed }] }, (error: any, resp: any) => { if (error) return; });
           });
           if (this.prodLogging)
             this.log("Turned on " + newValue + " effect!");
@@ -347,20 +349,20 @@ export class WLED {
       this.log("COLOR ARRAY BRIGHTNESS: " + colorArray);
 
     this.host.forEach((host) => {
-      this.httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [this.colorArray] }] }, (error: any, response: any) => { if (error) return; });
+      httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [this.colorArray] }] }, (error: any, response: any) => { if (error) return; });
     });
   }
 
   turnOffWLED(): void {
     this.host.forEach((host) => {
-      this.httpSendData(`http://${host}/win&T=0`, "GET", {}, (error: any, response: any) => { if (error) return; });
+      httpSendData(`http://${host}/win&T=0`, "GET", {}, (error: any, response: any) => { if (error) return; });
     });
     this.lightOn = false;
   }
 
   turnOnWLED(): void {
     this.host.forEach((host) => {
-      this.httpSendData(`http://${host}/win&T=1`, "GET", {}, (error: any, response: any) => { if (error) return; });
+      httpSendData(`http://${host}/win&T=1`, "GET", {}, (error: any, response: any) => { if (error) return; });
     });
     this.lightService.updateCharacteristic(this.hap.Characteristic.Brightness, 100);
     this.lightOn = true;
@@ -368,14 +370,14 @@ export class WLED {
 
   turnOffAmbilight(): void {
     this.host.forEach((host) => {
-      this.httpSendData(`http://${host}/win&LO=1`, "GET", {}, (error: any, response: any) => { if (error) return; });
+      httpSendData(`http://${host}/win&LO=1`, "GET", {}, (error: any, response: any) => { if (error) return; });
     });
     this.ambilightOn = false;
   }
 
   turnOnAmbilight(): void {
     this.host.forEach((host) => {
-      this.httpSendData(`http://${host}/win&LO=0`, "GET", {}, (error: any, response: any) => { if (error) return; });
+      httpSendData(`http://${host}/win&LO=0`, "GET", {}, (error: any, response: any) => { if (error) return; });
     });
     this.lightService.updateCharacteristic(this.hap.Characteristic.Brightness, 100);
     this.ambilightOn = true;
@@ -383,7 +385,7 @@ export class WLED {
 
   turnOffAllEffects(): void {
     this.host.forEach((host) => {
-      this.httpSendData(`http://${host}/json`, "POST", { "seg": [{ "fx": 0, "sx": 0, "col": this.colorArray }] }, (error: any, response: any) => { if (error) return; });
+      httpSendData(`http://${host}/json`, "POST", { "seg": [{ "fx": 0, "sx": 0, "col": this.colorArray }] }, (error: any, response: any) => { if (error) return; });
     });
     if (!this.disableEffectSwitch)
       this.effectsService.updateCharacteristic(this.Characteristic.Active, 0);
@@ -394,27 +396,17 @@ export class WLED {
 
   getEffectIdByName(name: string): number {
     let effectNr = this.getAllEffects().indexOf(name);
-    if (effectNr >= 0)
+    if (effectNr >= 0) {
       return effectNr;
-    else
+    } else {
+      if (this.debug)
+        this.log("Effect " + name + " not found! Displaying Rainbow Runner");
       return this.getAllEffects().indexOf("Rainbow Runner");
+    }
   }
 
   getAllEffects(): Array<string> {
-    return [
-      "Solid", "Blink", "Breathe", "Wipe", "Wipe Random", "Random Colors", "Sweep", "Dynamic", "Colorloop", "Rainbow",
-      "Scan", "Scan Dual", "Fade", "Theater", "Theater Rainbow", "Running", "Saw", "Twinkle", "Dissolve", "Dissolve Rnd",
-      "Sparkle", "Sparkle Dark", "Sparkle+", "Strobe", "Strobe Rainbow", "Strobe Mega", "Blink Rainbow", "Android", "Chase", "Chase Random",
-      "Chase Rainbow", "Chase Flash", "Chase Flash Rnd", "Rainbow Runner", "Colorful", "Traffic Light", "Sweep Random", "Running 2", "Red & Blue", "Stream",
-      "Scanner", "Lighthouse", "Fireworks", "Rain", "Merry Christmas", "Fire Flicker", "Gradient", "Loading", "Police", "Police All",
-      "Two Dots", "Two Areas", "Circus", "Halloween", "Tri Chase", "Tri Wipe", "Tri Fade", "Lightning", "ICU", "Multi Comet",
-      "Scanner Dual", "Stream 2", "Oscillate", "Pride 2015", "Juggle", "Palette", "Fire 2012", "Colorwaves", "Bpm", "Fill Noise",
-      "Noise 1", "Noise 2", "Noise 3", "Noise 4", "Colortwinkles", "Lake", "Meteor", "Meteor Smooth", "Railway", "Ripple",
-      "Twinklefox", "Twinklecat", "Halloween Eyes", "Solid Pattern", "Solid Pattern Tri", "Spots", "Spots Fade", "Glitter", "Candle", "Fireworks Starburst",
-      "Fireworks 1D", "Bouncing Balls", "Sinelon", "Sinelon Dual", "Sinelon Rainbow", "Popcorn", "Drip", "Plasma", "Percent", "Ripple Rainbow",
-      "Heartbeat", "Pacifica", "Candle Multi", "Solid Glitter", "Sunrise", "Phased", "Twinkleup", "Noise Pal", "Sine", "Phased Noise",
-      "Flow", "Chunchun", "Dancing Shadows", "Washing Machine"
-    ];
+    return this.cachedAllEffects;
   }
 
   updateLight(): void {
@@ -423,7 +415,7 @@ export class WLED {
     this.lightService.updateCharacteristic(this.hap.Characteristic.Saturation, this.saturation);
     this.lightService.updateCharacteristic(this.hap.Characteristic.Hue, this.hue);
 
-    if(this.ambilightService)
+    if (this.ambilightService)
       this.ambilightService.updateCharacteristic(this.hap.Characteristic.On, this.ambilightOn);
   }
 
@@ -433,7 +425,7 @@ export class WLED {
     var that = this;
     var status = polling(function (done: any) {
       if (!that.isOffline)
-        that.httpSendData(`http://${host}/json/state`, "GET", {}, (error: any, response: any) => {
+        httpSendData(`http://${host}/json/state`, "GET", {}, (error: any, response: any) => {
           done(error, response);
         })
       else
@@ -461,7 +453,7 @@ export class WLED {
 
         if (that.multipleHosts) {
           that.host.forEach((host) => {
-            that.httpSendData(`http://${host}/json`, "POST", { "bri": that.brightness, "seg": [{ "col": [colorResponse] }] }, (error: any, response: any) => { if (error) that.log("Error while polling WLED (brightness) " + that.name + " (" + that.host + ")"); });
+            httpSendData(`http://${host}/json`, "POST", { "bri": that.brightness, "seg": [{ "col": [colorResponse] }] }, (error: any, response: any) => { if (error) that.log("Error while polling WLED (brightness) " + that.name + " (" + that.host + ")"); });
             if (that.prodLogging)
               that.log("Changed color to " + colorResponse + " on host " + host);
           })
@@ -474,7 +466,7 @@ export class WLED {
       }
 
 
-      if (that.ambilightOn && response["data"]["lor"])  {
+      if (that.ambilightOn && response["data"]["lor"]) {
         that.ambilightOn = !response["data"]["lor"];
 
         if (that.prodLogging)
@@ -482,7 +474,7 @@ export class WLED {
 
         if (that.multipleHosts) {
           that.host.forEach((host) => {
-            that.httpSendData(`http://${host}/json`, "POST", { "lor": that.ambilightOn}, (error: any, response: any) => { if (error) that.log("Error while polling WLED (brightness) " + that.name + " (" + that.host + ")"); });
+            httpSendData(`http://${host}/json`, "POST", { "lor": that.ambilightOn }, (error: any, response: any) => { if (error) that.log("Error while polling WLED (brightness) " + that.name + " (" + that.host + ")"); });
             if (that.prodLogging)
               that.log("Changed color to " + colorResponse + " on host " + host);
           })
@@ -500,34 +492,13 @@ export class WLED {
 
     status.on("error", function (error: any, response: any) {
       if (error) {
-        if(that.debug)
+        if (that.debug)
           that.log(error)
         that.log("Error while polling WLED " + that.name + " (" + that.host + ")");
         that.isOffline = true;
         return;
       }
     })
-  }
-
-
-  httpSendData(url: string, method: string, data: object, callback: Function): void {
-    if (method.toLowerCase() == "post") {
-      axios.post(String(url), data)
-        .then(function (response: any) {
-          callback(null, response)
-        })
-        .catch(function (error: any) {
-          callback(error, null)
-        });
-    } else if (method.toLowerCase() == "get") {
-      axios.get(url)
-        .then(function (response: any) {
-          callback(null, response)
-        })
-        .catch(function (error: any) {
-          callback(error, null)
-        })
-    }
   }
 
   currentBrightnessToPercent() {
