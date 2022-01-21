@@ -42,11 +42,10 @@ export class WLEDPlatform implements DynamicPlatformPlugin {
       }
 
       loadEffects(wled.host).then((effects) => {
-        this.wleds.push(new WLED(this, wled, effects));
+          this.wleds.push(new WLED(this, wled, effects));
       }).catch((error) => {
-        console.log(error) 
+        console.log(error)
       });
-
 
     }
   }

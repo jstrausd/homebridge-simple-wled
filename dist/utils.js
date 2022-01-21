@@ -33,12 +33,11 @@ async function loadEffects(hosts) {
             host = hosts;
         }
         httpSendData(`http://${host}/json/effects`, "GET", {}, (error, response) => {
-            if (error) {
-                console.log(`Error while loading all effects on ${host}`);
-                reject();
+            if (error || response == null) {
+                return reject(`Error while loading all effects on ${host}`);
             }
             ;
-            console.log("Loaded all effects!");
+            console.log(`Loaded all effects for ${host}`);
             resolve(response.data);
         });
     });

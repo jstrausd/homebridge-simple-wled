@@ -29,7 +29,7 @@ export async function loadEffects(hosts:any): Promise<Array<string>> {
             host = hosts;
         }
         httpSendData(`http://${host}/json/effects`, "GET", {}, (error: any, response: any) => {
-          if (error) { console.log(`Error while loading all effects on ${host}`); reject(); };
+          if (error || response == null) { return reject(`Error while loading all effects on ${host}`); };
           console.log(`Loaded all effects for ${host}`);
           resolve(response.data);
         })

@@ -330,7 +330,6 @@ class WLED {
                 that.isOffline = false;
         }, { longpolling: true, interval: 4500, longpollEventName: "statuspoll" + host });
         status.on("poll", function (response) {
-            //let rainbowRunnerOnData = (response["data"]["seg"][0]["fx"] == that.effectId ? true : false);
             let colorResponse = response["data"]["seg"][0]["col"][0];
             colorResponse = [colorResponse[0], colorResponse[1], colorResponse[2]];
             if (that.lightOn && response["data"]["on"] && (that.brightness != response["data"]["bri"] ||
