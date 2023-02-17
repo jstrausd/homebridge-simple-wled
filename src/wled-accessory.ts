@@ -347,7 +347,7 @@ export class WLED {
       this.log("COLOR ARRAY BRIGHTNESS: " + colorArray);
 
     this.host.forEach((host) => {
-      httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [this.colorArray] }] }, (error: any, response: any) => { if (error) return; });
+      httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness }, (error: any, response: any) => { if (error) return; });
     });
   }
 
