@@ -232,7 +232,7 @@ export class WLED {
 
     this.lightService.getCharacteristic(this.hap.Characteristic.Hue)
       .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
-        let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
+        let colorArray = this.HSVtoRGB(this.hue, this.saturation);
         this.colorArray = colorArray;
         if (this.debug)
           this.log("Current hue: " + this.hue + "%");
@@ -243,7 +243,7 @@ export class WLED {
 
         this.hue = value as number;
         this.turnOffAllEffects();
-        let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
+        let colorArray = this.HSVtoRGB(this.hue, this.saturation);
 
         this.host.forEach((host) => {
           httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error: any, response: any) => { if (error) this.log("Error while changing color of WLED " + this.name + " (" + host + ")"); });
@@ -341,13 +341,13 @@ export class WLED {
       this.turnOffWLED();
       return;
     }
-    let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
+    let colorArray = this.HSVtoRGB(this.hue, this.saturation);
     this.colorArray = colorArray;
     if (this.debug)
       this.log("COLOR ARRAY BRIGHTNESS: " + colorArray);
 
     this.host.forEach((host) => {
-      httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [this.colorArray] }] }, (error: any, response: any) => { if (error) return; });
+      httpSendData(`http://${host}/json`, "POST", { "bri": this.brightness }, (error: any, response: any) => { if (error) return; });
     });
   }
 
@@ -517,36 +517,35 @@ export class WLED {
 
 
   /* accepts parameters
-  * h  Object = {h:x, s:y, v:z}
+  * h  Object = {h:x, s:y}
   * OR 
-  * h, s, v
+  * h, s
   */
-  HSVtoRGB(h: any, s: any, v: any): any {
+  HSVtoRGB(h: any, s: any): any {
     h = h / 360;
     s = s / 100;
-    v = v / 100;
 
     var r, g, b, i, f, p, q, t;
     if (arguments.length === 1) {
-      s = h.s, v = h.v, h = h.h;
+      s = h.s, h = h.h;
     }
     i = Math.floor(h * 6);
     f = h * 6 - i;
-    p = v * (1 - s);
-    q = v * (1 - f * s);
-    t = v * (1 - (1 - f) * s);
+    p = (1 - s);
+    q = (1 - f * s);
+    t = (1 - (1 - f) * s);
     switch (i % 6) {
-      case 0: r = v, g = t, b = p; break;
-      case 1: r = q, g = v, b = p; break;
-      case 2: r = p, g = v, b = t; break;
-      case 3: r = p, g = q, b = v; break;
-      case 4: r = t, g = p, b = v; break;
-      case 5: r = v, g = p, b = q; break;
+      case 0: r = 1, g = t, b = p; break;
+      case 1: r = q, g = 1, b = p; break;
+      case 2: r = p, g = 1, b = t; break;
+      case 3: r = p, g = q, b = 1; break;
+      case 4: r = t, g = p, b = 1; break;
+      case 5: r = 1, g = p, b = q; break;
     }
     return [
-      Math.round(r * 255),
-      Math.round(g * 255),
-      Math.round(b * 255)
+      Math.round((r as number) * 255),
+      Math.round((g as number) * 255),
+      Math.round((b as number) * 255)
     ];
   }
 
