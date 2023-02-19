@@ -1,15 +1,15 @@
 {
   "name": "homebridge-simple-wled",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "An accessory plugin for homebridge to support WLED Strips",
   "main": "dist/index.js",
   "scripts": {
     "clean": "rimraf ./dist",
     "build": "rimraf ./dist && tsc",
-    "dev": "sudo npm run build && sudo npm link && sudo homebridge",
+    "dev": "npm run build && npm link && homebridge",
     "prepublishOnly": "npm run build",
     "postpublish": "npm run clean",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run build && npm link"
   },
   "author": "Jonathan Strauss <office@jstrauss.at>",
   "engines": {
