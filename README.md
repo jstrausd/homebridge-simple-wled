@@ -150,25 +150,6 @@ sample additional option:
     ]
 ```
 
-If you want to turn off the WLED when turning off the WLED-Preset-Switch then you can add the option "turnOffWledWithPreset", (default: false)
-
-
-```
-    "platforms": [
-                {
-            "platform": "WLED",
-            "wleds": [
-                {
-                    "name": "LED-Tisch",
-                    "host": "10.0.0.52",
-                    "presets": ["Christmas", "Halloween", "Morning", "Night"],
-                    "turnOffWledWithPreset": true
-                }
-            ]
-        }
-    ]
-```
-
 If you want to disable the Preset-Switch to just use the normal "LightBulb" function. You can just remove the "presets" option in the config.json.
 
 ## 💡💡💡 Adding multiple WLED-hosts to a single accessory
