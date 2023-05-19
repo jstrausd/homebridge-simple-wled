@@ -59,6 +59,7 @@ export class WLED {
   private hue = 100;
   private saturation = 100;
   private colorArray = [255, 0, 0];
+  private preset = -1;
 
   private effectSpeed = 15;
 
@@ -512,6 +513,12 @@ export class WLED {
 
     if (this.ambilightService)
       this.ambilightService.updateCharacteristic(this.hap.Characteristic.On, this.ambilightOn);
+    
+    if (this.presetsService) {
+      if (this.preset == -1) {
+        this.presetsService.updateCharacteristic(this.Characteristic.Active, 0)
+      }
+    }
   }
 
 
@@ -544,6 +551,8 @@ export class WLED {
         that.colorArray = colorResponse;
 
         that.brightness = response["data"]["bri"];
+
+        that.preset = response["data"]["ps"];
 
         if (that.multipleHosts) {
           that.host.forEach((host) => {
