@@ -44,6 +44,7 @@ export class WLED {
   private disableEffectSwitch: boolean;
   private disablePresetSwitch: boolean;
   private turnOffWledWithEffect: boolean;
+  private turnOffWledWithPreset: boolean;
   private showEffectControl: boolean;
   private ambilightSwitch: boolean;
 
@@ -79,6 +80,7 @@ export class WLED {
     this.disableEffectSwitch = (wledConfig.effects) ? false : true;
     this.disablePresetSwitch = (wledConfig.presets) ? false : true;
     this.turnOffWledWithEffect = wledConfig.turnOffWledWithEffect || false;
+    this.turnOffWledWithPreset = wledConfig.turnOffWledWithEffect || false;
     this.effectSpeed = wledConfig.defaultEffectSpeed || 15;
     this.showEffectControl = wledConfig.showEffectControl ? true : false;
     this.ambilightSwitch = wledConfig.ambilightSwitch ? true : false;
@@ -342,14 +344,14 @@ export class WLED {
       .on(CharacteristicEventTypes.SET, (newValue: any, callback: any) => {
 
         if (newValue == 0) {
-          if (this.turnOffWledWithEffect) {
+          if (this.turnOffWledWithPreset) {
             this.turnOffWLED();
           } else {
             this.turnOffAllPresets();
           }
           this.presetsAreActive = false;
         } else {
-          if (this.turnOffWledWithEffect) {
+          if (this.turnOffWledWithPreset) {
             this.turnOnWLED();
           }
           this.presetsAreActive = true;

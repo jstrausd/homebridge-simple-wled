@@ -36,6 +36,7 @@ After editing the config, restart your HomeBridge Server and add the accessory m
 If you encounter some issues when adding the accessory to the homekit app, open an issue in GitHub...
 
 ## 💡 Configure own Effect-Switch
+> **You can't enable the Effect-Switch and Preset-Switch at the same time!
 To use your own effects you have an option "effects" you can add to your config.json and add as value a comma-seperated list of supported effects of your choice.
 All effects are found under [Effects-List - WLED](https://github.com/Aircoookie/WLED/wiki/List-of-effects-and-palettes)
 (Just use Names from the Effects and not from the palettes!!)
@@ -122,6 +123,51 @@ or you can add a Effect Speed Control Element (Lightbulb accessory which control
         }
     ]
 ```
+
+## 💡 Configure own Preset-Switch
+> **You can't enable the Effect-Switch and Preset-Switch at the same time!
+To use your own presets you have an option "presets" you can add to your config.json and add as value a comma-seperated list of supported presets of your choice.
+You can name them what every you choose them to be, but the order of them has to be the same as in wled.
+(Ex. Preset 1 is assigned to the first index of the list.)
+
+sample additional option:
+
+```
+    "platforms": [
+                {
+            "platform": "WLED",
+            "wleds": [
+                {
+                    "name": "LED-Tisch",
+                    "host": "10.0.0.52",
+                    "presets": ["Christmas", "Halloween", "Morning", "Night"],
+                    "log": false
+                }
+            ]
+        }
+    ]
+```
+
+If you want to turn off the WLED when turning off the WLED-Preset-Switch then you can add the option "turnOffWledWithPreset", (default: false)
+
+
+```
+    "platforms": [
+                {
+            "platform": "WLED",
+            "wleds": [
+                {
+                    "name": "LED-Tisch",
+                    "host": "10.0.0.52",
+                    "presets": ["Christmas", "Halloween", "Morning", "Night"],
+                    "turnOffWledWithPreset": true
+                }
+            ]
+        }
+    ]
+```
+
+If you want to disable the Preset-Switch to just use the normal "LightBulb" function. You can just remove the "presets" option in the config.json.
 
 ## 💡💡💡 Adding multiple WLED-hosts to a single accessory
 If you want to control multiple WLED-hosts with a single accessory, you have to set the "host" option to a list/array as below:
