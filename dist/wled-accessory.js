@@ -34,6 +34,7 @@ class WLED {
         this.disableEffectSwitch = (wledConfig.effects) ? false : true;
         this.disablePresetSwitch = (wledConfig.presets) ? false : true;
         this.turnOffWledWithEffect = wledConfig.turnOffWledWithEffect || false;
+        this.turnOffWledWithPreset = wledConfig.turnOffWledWithPreset || false;
         this.effectSpeed = wledConfig.defaultEffectSpeed || 15;
         this.showEffectControl = wledConfig.showEffectControl ? true : false;
         this.ambilightSwitch = wledConfig.ambilightSwitch ? true : false;
@@ -246,7 +247,7 @@ class WLED {
         this.presetsService.getCharacteristic(this.Characteristic.Active)
             .on("set" /* SET */, (newValue, callback) => {
             if (newValue == 0) {
-                if (this.turnOffWledWithEffect) {
+                if (this.turnOffWledWithPreset) {
                     this.turnOffWLED();
                 }
                 else {
@@ -255,7 +256,7 @@ class WLED {
                 this.presetsAreActive = false;
             }
             else {
-                if (this.turnOffWledWithEffect) {
+                if (this.turnOffWledWithPreset) {
                     this.turnOnWLED();
                 }
                 this.presetsAreActive = true;
