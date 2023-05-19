@@ -39,7 +39,7 @@
                                 "required": false
                             }
                         },
-                        "preset": {
+                        "presets": {
                             "title": "Presets",
                             "description": "Presets for this WLED instance",
                             "type": "array",
