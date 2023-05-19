@@ -80,7 +80,7 @@ export class WLED {
     this.disableEffectSwitch = (wledConfig.effects) ? false : true;
     this.disablePresetSwitch = (wledConfig.presets) ? false : true;
     this.turnOffWledWithEffect = wledConfig.turnOffWledWithEffect || false;
-    this.turnOffWledWithPreset = wledConfig.turnOffWledWithEffect || false;
+    this.turnOffWledWithPreset = wledConfig.turnOffWledWithPreset || false;
     this.effectSpeed = wledConfig.defaultEffectSpeed || 15;
     this.showEffectControl = wledConfig.showEffectControl ? true : false;
     this.ambilightSwitch = wledConfig.ambilightSwitch ? true : false;
