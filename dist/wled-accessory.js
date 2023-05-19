@@ -20,6 +20,7 @@ class WLED {
         this.hue = 100;
         this.saturation = 100;
         this.colorArray = [255, 0, 0];
+        this.preset = -1;
         this.effectSpeed = 15;
         this.effectsAreActive = false;
         this.cachedAllEffects = [];
@@ -399,6 +400,11 @@ class WLED {
         this.lightService.updateCharacteristic(this.hap.Characteristic.Hue, this.hue);
         if (this.ambilightService)
             this.ambilightService.updateCharacteristic(this.hap.Characteristic.On, this.ambilightOn);
+        if (this.presetsService) {
+            if (this.preset == -1) {
+                this.presetsService.updateCharacteristic(this.Characteristic.Active, 0);
+            }
+        }
     }
     startPolling(host) {
         var that = this;
@@ -420,6 +426,7 @@ class WLED {
                 that.saveColorArrayAsHSV(colorResponse);
                 that.colorArray = colorResponse;
                 that.brightness = response["data"]["bri"];
+                that.preset = response["data"]["ps"];
                 if (that.multipleHosts) {
                     that.host.forEach((host) => {
                         (0, utils_1.httpSendData)(`http://${host}/json`, "POST", { "bri": that.brightness, "seg": [{ "col": [colorResponse] }] }, (error, response) => { if (error)
