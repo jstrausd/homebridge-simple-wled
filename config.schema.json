@@ -39,6 +39,16 @@
                                 "required": false
                             }
                         },
+                        "preset": {
+                            "title": "Presets",
+                            "description": "Presets for this WLED instance",
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "title": "Preset",
+                                "required": false
+                            }
+                        },
                         "log": {
                             "title": "Logging",
                             "description": "Enable Logging/Debugging option",

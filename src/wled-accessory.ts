@@ -32,6 +32,7 @@ export class WLED {
   private ambilightService!: Service;
   private speedService!: Service;
   private effectsService!: Service;
+  private presetsService!: Service;
 
   /*        LOGGING / DEBUGGING         */
   private readonly debug: boolean = false;
@@ -41,6 +42,7 @@ export class WLED {
   private effectId = 33;
   private multipleHosts: boolean;
   private disableEffectSwitch: boolean;
+  private disablePresetSwitch: boolean;
   private turnOffWledWithEffect: boolean;
   private showEffectControl: boolean;
   private ambilightSwitch: boolean;
@@ -64,6 +66,10 @@ export class WLED {
   private effects: Array<number> = [];
   private lastPlayedEffect: number = 0;
 
+  private presetsAreActive = false;
+  private presets: Array<number> = [];
+  private lastPlayedPreset: number = 0;
+
   /*  END LOCAL CACHING VARIABLES */
 
   constructor(platform: WLEDPlatform, wledConfig: any, loadedEffects: Array<string>) {
@@ -71,6 +77,7 @@ export class WLED {
     this.name = wledConfig.name || 'WLED';
     this.prodLogging = wledConfig.log || false;
     this.disableEffectSwitch = (wledConfig.effects) ? false : true;
+    this.disablePresetSwitch = (wledConfig.presets) ? false : true;
     this.turnOffWledWithEffect = wledConfig.turnOffWledWithEffect || false;
     this.effectSpeed = wledConfig.defaultEffectSpeed || 15;
     this.showEffectControl = wledConfig.showEffectControl ? true : false;
@@ -125,9 +132,23 @@ export class WLED {
       this.effectsService = this.wledAccessory.addService(this.api.hap.Service.Television);
       this.effectsService.setCharacteristic(this.Characteristic.ConfiguredName, "Effects");
 
-      this.registerCharacteristicActive();
-      this.registerCharacteristicActiveIdentifier();
+      this.registerCharacteristicEffectsActive();
+      this.registerCharacteristicEffectsActiveIdentifier();
       this.addEffectsInputSources(wledConfig.effects);
+    }
+
+    if (!this.disablePresetSwitch) {
+      // LOAD ALL PRESETS FROM HOST
+      this.presetsService = this.wledAccessory.addService(this.api.hap.Service.Television);
+      this.presetsService.setCharacteristic(this.Characteristic.ConfiguredName, "Presets");
+
+      this.registerCharacteristicPresetsActive();
+      this.registerCharacteristicPresetsActiveIdentifier();
+      this.addPresetsInputSources(wledConfig.presets);
+    }
+
+    if (!this.disableEffectSwitch && !this.disablePresetSwitch) {
+      this.log.error("You are Unable to have Effects and Presets Enabled at the Same Time! Please Disable one of them.")
     }
 
     this.api.publishExternalAccessories(PLUGIN_NAME, [this.wledAccessory]);
@@ -273,7 +294,7 @@ export class WLED {
 
   }
 
-  registerCharacteristicActive(): void {
+  registerCharacteristicEffectsActive(): void {
     this.effectsService.getCharacteristic(this.Characteristic.Active)
       .on(CharacteristicEventTypes.SET, (newValue: any, callback: any) => {
 
@@ -297,7 +318,7 @@ export class WLED {
       });
   }
 
-  registerCharacteristicActiveIdentifier(): void {
+  registerCharacteristicEffectsActiveIdentifier(): void {
     this.effectsService.getCharacteristic(this.Characteristic.ActiveIdentifier)
       .on(CharacteristicEventTypes.SET, (newValue: CharacteristicValue, callback: CharacteristicSetCallback) => {
 
@@ -311,6 +332,49 @@ export class WLED {
             this.log("Turned on " + newValue + " effect!");
 
           this.lastPlayedEffect = parseInt(newValue.toString());
+        }
+        callback(null);
+      });
+  }
+
+  registerCharacteristicPresetsActive(): void {
+    this.presetsService.getCharacteristic(this.Characteristic.Active)
+      .on(CharacteristicEventTypes.SET, (newValue: any, callback: any) => {
+
+        if (newValue == 0) {
+          if (this.turnOffWledWithEffect) {
+            this.turnOffWLED();
+          } else {
+            this.turnOffAllPresets();
+          }
+          this.presetsAreActive = false;
+        } else {
+          if (this.turnOffWledWithEffect) {
+            this.turnOnWLED();
+          }
+          this.presetsAreActive = true;
+          this.presetsService.setCharacteristic(this.Characteristic.ActiveIdentifier, this.lastPlayedPreset);
+        }
+
+        this.presetsService.updateCharacteristic(this.Characteristic.Active, newValue);
+        callback(null);
+      });
+  }
+
+  registerCharacteristicPresetsActiveIdentifier(): void {
+    this.presetsService.getCharacteristic(this.Characteristic.ActiveIdentifier)
+      .on(CharacteristicEventTypes.SET, (newValue: CharacteristicValue, callback: CharacteristicSetCallback) => {
+
+        if (this.presetsAreActive) {
+
+          let presetID = this.presets[parseInt(newValue.toString())];
+          this.host.forEach((host) => {
+            httpSendData(`http://${host}/json`, "POST", { "ps": presetID + 1 }, (error: any, resp: any) => { if (error) return; });
+          });
+          if (this.prodLogging)
+            this.log("Switched to " + newValue + " preset!");
+
+          this.lastPlayedPreset = parseInt(newValue.toString());
         }
         callback(null);
       });
@@ -332,6 +396,26 @@ export class WLED {
         .setCharacteristic(this.Characteristic.IsConfigured, this.Characteristic.IsConfigured.CONFIGURED)
         .setCharacteristic(this.Characteristic.InputSourceType, this.Characteristic.InputSourceType.HDMI);
       this.effectsService.addLinkedService(effectInputSource);
+    });
+
+  }
+
+  addPresetsInputSources(presets: any): void {
+
+    if (this.prodLogging) {
+      this.log("Adding presets: " + presets);
+    }
+
+    presets.forEach((presetName: string, i: number) => {
+      let presetID = presets.id;
+      this.presets.push(presetID);
+      const presetInputSource = this.wledAccessory.addService(this.hap.Service.InputSource, presetID, presetName);
+      presetInputSource
+        .setCharacteristic(this.Characteristic.Identifier, presetID)
+        .setCharacteristic(this.Characteristic.ConfiguredName, presetName)
+        .setCharacteristic(this.Characteristic.IsConfigured, this.Characteristic.IsConfigured.CONFIGURED)
+        .setCharacteristic(this.Characteristic.InputSourceType, this.Characteristic.InputSourceType.HDMI);
+      this.presetsService.addLinkedService(presetInputSource);
     });
 
   }
@@ -390,6 +474,17 @@ export class WLED {
 
     if (this.debug)
       this.log("Turned off Effects!");
+  }
+
+  turnOffAllPresets(): void {
+    this.host.forEach((host) => {
+      httpSendData(`http://${host}/json`, "POST", { "ps": -1 }, (error: any, resp: any) => { if (error) return; });
+    });
+    if (!this.disableEffectSwitch)
+      this.effectsService.updateCharacteristic(this.Characteristic.Active, 0);
+
+    if (this.debug)
+      this.log("Cleared Presets!");
   }
 
   getEffectIdByName(name: string): number {
