@@ -509,6 +509,8 @@ export class WLED {
     if (this.presetsService) {
       if (this.preset == -1) {
         this.presetsService.updateCharacteristic(this.Characteristic.Active, false)
+      } else {
+        this.presetsService.updateCharacteristic(this.Characteristic.Active, true)
       }
     }
   }
