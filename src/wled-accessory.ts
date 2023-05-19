@@ -409,7 +409,7 @@ export class WLED {
     }
 
     presets.forEach((presetName: string, i: number) => {
-      let presetID = presets.id;
+      let presetID = i;
       this.presets.push(presetID);
       const presetInputSource = this.wledAccessory.addService(this.hap.Service.InputSource, presetID, presetName);
       presetInputSource
