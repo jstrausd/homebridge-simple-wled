@@ -402,7 +402,7 @@ class WLED {
             this.ambilightService.updateCharacteristic(this.hap.Characteristic.On, this.ambilightOn);
         if (this.presetsService) {
             if (this.preset == -1) {
-                this.presetsService.updateCharacteristic(this.Characteristic.Active, 0);
+                this.presetsService.updateCharacteristic(this.Characteristic.Active, false);
             }
         }
     }
@@ -426,7 +426,6 @@ class WLED {
                 that.saveColorArrayAsHSV(colorResponse);
                 that.colorArray = colorResponse;
                 that.brightness = response["data"]["bri"];
-                that.preset = response["data"]["ps"];
                 if (that.multipleHosts) {
                     that.host.forEach((host) => {
                         (0, utils_1.httpSendData)(`http://${host}/json`, "POST", { "bri": that.brightness, "seg": [{ "col": [colorResponse] }] }, (error, response) => { if (error)
@@ -459,6 +458,8 @@ class WLED {
                 that.ambilightOn = !response["data"]["lor"];
                 that.updateLight();
             }
+            that.preset = response["data"]["ps"];
+            that.updateLight();
         });
         status.on("error", function (error, response) {
             if (error) {

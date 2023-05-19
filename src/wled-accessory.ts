@@ -516,7 +516,7 @@ export class WLED {
     
     if (this.presetsService) {
       if (this.preset == -1) {
-        this.presetsService.updateCharacteristic(this.Characteristic.Active, 0)
+        this.presetsService.updateCharacteristic(this.Characteristic.Active, false)
       }
     }
   }
@@ -551,8 +551,6 @@ export class WLED {
         that.colorArray = colorResponse;
 
         that.brightness = response["data"]["bri"];
-
-        that.preset = response["data"]["ps"];
 
         if (that.multipleHosts) {
           that.host.forEach((host) => {
@@ -589,7 +587,8 @@ export class WLED {
         that.updateLight();
       }
 
-
+      that.preset = response["data"]["ps"];
+      that.updateLight();
 
     });
 
