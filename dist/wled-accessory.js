@@ -20,15 +20,20 @@ class WLED {
         this.hue = 100;
         this.saturation = 100;
         this.colorArray = [255, 0, 0];
+        this.preset = -1;
         this.effectSpeed = 15;
         this.effectsAreActive = false;
         this.cachedAllEffects = [];
         this.effects = [];
         this.lastPlayedEffect = 0;
+        this.presetsAreActive = false;
+        this.presets = [];
+        this.lastPlayedPreset = 0;
         this.log = platform.log;
         this.name = wledConfig.name || 'WLED';
         this.prodLogging = wledConfig.log || false;
         this.disableEffectSwitch = (wledConfig.effects) ? false : true;
+        this.disablePresetSwitch = (wledConfig.presets) ? false : true;
         this.turnOffWledWithEffect = wledConfig.turnOffWledWithEffect || false;
         this.effectSpeed = wledConfig.defaultEffectSpeed || 15;
         this.showEffectControl = wledConfig.showEffectControl ? true : false;
@@ -70,9 +75,20 @@ class WLED {
             // LOAD ALL EFFECTS FROM HOST
             this.effectsService = this.wledAccessory.addService(this.api.hap.Service.Television);
             this.effectsService.setCharacteristic(this.Characteristic.ConfiguredName, "Effects");
-            this.registerCharacteristicActive();
-            this.registerCharacteristicActiveIdentifier();
+            this.registerCharacteristicEffectsActive();
+            this.registerCharacteristicEffectsActiveIdentifier();
             this.addEffectsInputSources(wledConfig.effects);
+        }
+        if (!this.disablePresetSwitch) {
+            // LOAD ALL PRESETS FROM HOST
+            this.presetsService = this.wledAccessory.addService(this.api.hap.Service.Television);
+            this.presetsService.setCharacteristic(this.Characteristic.ConfiguredName, "Presets");
+            this.registerCharacteristicPresetsActive();
+            this.registerCharacteristicPresetsActiveIdentifier();
+            this.addPresetsInputSources(wledConfig.presets);
+        }
+        if (!this.disableEffectSwitch && !this.disablePresetSwitch) {
+            this.log.error("You are Unable to have Effects and Presets Enabled at the Same Time! Please Disable one of them.");
         }
         this.api.publishExternalAccessories(settings_1.PLUGIN_NAME, [this.wledAccessory]);
         this.platform.accessories.push(this.wledAccessory);
@@ -155,7 +171,7 @@ class WLED {
     registerCharacteristicHue() {
         this.lightService.getCharacteristic(this.hap.Characteristic.Hue)
             .on("get" /* GET */, (callback) => {
-            let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
+            let colorArray = this.HSVtoRGB(this.hue, this.saturation);
             this.colorArray = colorArray;
             if (this.debug)
                 this.log("Current hue: " + this.hue + "%");
@@ -164,7 +180,7 @@ class WLED {
             .on("set" /* SET */, (value, callback) => {
             this.hue = value;
             this.turnOffAllEffects();
-            let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
+            let colorArray = this.HSVtoRGB(this.hue, this.saturation);
             this.host.forEach((host) => {
                 (0, utils_1.httpSendData)(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [colorArray] }] }, (error, response) => { if (error)
                     this.log("Error while changing color of WLED " + this.name + " (" + host + ")"); });
@@ -188,7 +204,7 @@ class WLED {
             callback();
         });
     }
-    registerCharacteristicActive() {
+    registerCharacteristicEffectsActive() {
         this.effectsService.getCharacteristic(this.Characteristic.Active)
             .on("set" /* SET */, (newValue, callback) => {
             if (newValue == 0) {
@@ -211,7 +227,7 @@ class WLED {
             callback(null);
         });
     }
-    registerCharacteristicActiveIdentifier() {
+    registerCharacteristicEffectsActiveIdentifier() {
         this.effectsService.getCharacteristic(this.Characteristic.ActiveIdentifier)
             .on("set" /* SET */, (newValue, callback) => {
             if (this.effectsAreActive) {
@@ -223,6 +239,38 @@ class WLED {
                 if (this.prodLogging)
                     this.log("Turned on " + newValue + " effect!");
                 this.lastPlayedEffect = parseInt(newValue.toString());
+            }
+            callback(null);
+        });
+    }
+    registerCharacteristicPresetsActive() {
+        this.presetsService.getCharacteristic(this.Characteristic.Active)
+            .on("set" /* SET */, (newValue, callback) => {
+            if (newValue == 0) {
+                this.turnOffAllPresets();
+                this.presetsAreActive = false;
+            }
+            else {
+                this.turnOnWLED();
+                this.presetsAreActive = true;
+                this.presetsService.setCharacteristic(this.Characteristic.ActiveIdentifier, this.lastPlayedPreset);
+            }
+            this.presetsService.updateCharacteristic(this.Characteristic.Active, newValue);
+            callback(null);
+        });
+    }
+    registerCharacteristicPresetsActiveIdentifier() {
+        this.presetsService.getCharacteristic(this.Characteristic.ActiveIdentifier)
+            .on("set" /* SET */, (newValue, callback) => {
+            if (this.presetsAreActive) {
+                let presetID = this.presets[parseInt(newValue.toString())];
+                this.host.forEach((host) => {
+                    (0, utils_1.httpSendData)(`http://${host}/json`, "POST", { "ps": presetID + 1 }, (error, resp) => { if (error)
+                        return; });
+                });
+                if (this.prodLogging)
+                    this.log("Switched to " + newValue + " preset!");
+                this.lastPlayedPreset = parseInt(newValue.toString());
             }
             callback(null);
         });
@@ -243,17 +291,33 @@ class WLED {
             this.effectsService.addLinkedService(effectInputSource);
         });
     }
+    addPresetsInputSources(presets) {
+        if (this.prodLogging) {
+            this.log("Adding presets: " + presets);
+        }
+        presets.forEach((presetName, i) => {
+            let presetID = i;
+            this.presets.push(presetID);
+            const presetInputSource = this.wledAccessory.addService(this.hap.Service.InputSource, presetID, presetName);
+            presetInputSource
+                .setCharacteristic(this.Characteristic.Identifier, presetID)
+                .setCharacteristic(this.Characteristic.ConfiguredName, presetName)
+                .setCharacteristic(this.Characteristic.IsConfigured, this.Characteristic.IsConfigured.CONFIGURED)
+                .setCharacteristic(this.Characteristic.InputSourceType, this.Characteristic.InputSourceType.HDMI);
+            this.presetsService.addLinkedService(presetInputSource);
+        });
+    }
     httpSetBrightness() {
         if (this.brightness == 0) {
             this.turnOffWLED();
             return;
         }
-        let colorArray = this.HSVtoRGB(this.hue, this.saturation, this.currentBrightnessToPercent());
+        let colorArray = this.HSVtoRGB(this.hue, this.saturation);
         this.colorArray = colorArray;
         if (this.debug)
             this.log("COLOR ARRAY BRIGHTNESS: " + colorArray);
         this.host.forEach((host) => {
-            (0, utils_1.httpSendData)(`http://${host}/json`, "POST", { "bri": this.brightness, "seg": [{ "col": [this.colorArray] }] }, (error, response) => { if (error)
+            (0, utils_1.httpSendData)(`http://${host}/json`, "POST", { "bri": this.brightness }, (error, response) => { if (error)
                 return; });
         });
     }
@@ -297,6 +361,16 @@ class WLED {
         if (this.debug)
             this.log("Turned off Effects!");
     }
+    turnOffAllPresets() {
+        this.host.forEach((host) => {
+            (0, utils_1.httpSendData)(`http://${host}/json`, "POST", { "ps": -1 }, (error, resp) => { if (error)
+                return; });
+        });
+        if (!this.disableEffectSwitch)
+            this.effectsService.updateCharacteristic(this.Characteristic.Active, 0);
+        if (this.debug)
+            this.log("Cleared Presets!");
+    }
     getEffectIdByName(name) {
         let effectNr = this.getAllEffects().indexOf(name);
         if (effectNr >= 0) {
@@ -318,6 +392,14 @@ class WLED {
         this.lightService.updateCharacteristic(this.hap.Characteristic.Hue, this.hue);
         if (this.ambilightService)
             this.ambilightService.updateCharacteristic(this.hap.Characteristic.On, this.ambilightOn);
+        if (this.presetsService) {
+            if (this.preset == -1) {
+                this.presetsService.updateCharacteristic(this.Characteristic.Active, false);
+            }
+            else {
+                this.presetsService.updateCharacteristic(this.Characteristic.Active, true);
+            }
+        }
     }
     startPolling(host) {
         var that = this;
@@ -371,6 +453,8 @@ class WLED {
                 that.ambilightOn = !response["data"]["lor"];
                 that.updateLight();
             }
+            that.preset = response["data"]["ps"];
+            that.updateLight();
         });
         status.on("error", function (error, response) {
             if (error) {
@@ -397,41 +481,40 @@ class WLED {
         return false;
     }
     /* accepts parameters
-    * h  Object = {h:x, s:y, v:z}
+    * h  Object = {h:x, s:y}
     * OR
-    * h, s, v
+    * h, s
     */
-    HSVtoRGB(h, s, v) {
+    HSVtoRGB(h, s) {
         h = h / 360;
         s = s / 100;
-        v = v / 100;
         var r, g, b, i, f, p, q, t;
         if (arguments.length === 1) {
-            s = h.s, v = h.v, h = h.h;
+            s = h.s, h = h.h;
         }
         i = Math.floor(h * 6);
         f = h * 6 - i;
-        p = v * (1 - s);
-        q = v * (1 - f * s);
-        t = v * (1 - (1 - f) * s);
+        p = (1 - s);
+        q = (1 - f * s);
+        t = (1 - (1 - f) * s);
         switch (i % 6) {
             case 0:
-                r = v, g = t, b = p;
+                r = 1, g = t, b = p;
                 break;
             case 1:
-                r = q, g = v, b = p;
+                r = q, g = 1, b = p;
                 break;
             case 2:
-                r = p, g = v, b = t;
+                r = p, g = 1, b = t;
                 break;
             case 3:
-                r = p, g = q, b = v;
+                r = p, g = q, b = 1;
                 break;
             case 4:
-                r = t, g = p, b = v;
+                r = t, g = p, b = 1;
                 break;
             case 5:
-                r = v, g = p, b = q;
+                r = 1, g = p, b = q;
                 break;
         }
         return [
