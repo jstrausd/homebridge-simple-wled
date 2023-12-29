@@ -17,7 +17,7 @@ class WLEDPlatform {
             this.log("No WLEDs have been configured.");
             return;
         }
-        api.on("didFinishLaunching" /* DID_FINISH_LAUNCHING */, this.launchWLEDs.bind(this));
+        api.on("didFinishLaunching" /* APIEvent.DID_FINISH_LAUNCHING */, this.launchWLEDs.bind(this));
     }
     configureAccessory(accessory) {
         this.accessories.push(accessory);

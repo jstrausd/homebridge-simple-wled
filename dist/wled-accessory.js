@@ -56,7 +56,7 @@ class WLED {
             this.wledAccessory = new this.api.platformAccessory(this.name, uuid);
         }
         this.log.info("Setting up Accessory " + this.name + " with Host-IP: " + this.host + ((this.multipleHosts) ? " Multiple WLED-Hosts configured" : " Single WLED-Host configured"));
-        this.wledAccessory.category = 5 /* LIGHTBULB */;
+        this.wledAccessory.category = 5 /* this.api.hap.Categories.LIGHTBULB */;
         this.lightService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, this.name, 'LIGHT');
         if (this.showEffectControl) {
             this.speedService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Effect Speed', 'SPEED');
@@ -98,12 +98,12 @@ class WLED {
     }
     registerCharacteristicOnOff() {
         this.lightService.getCharacteristic(this.hap.Characteristic.On)
-            .on("get" /* GET */, (callback) => {
+            .on("get" /* CharacteristicEventTypes.GET */, (callback) => {
             if (this.debug)
                 this.log("Current state of the switch was returned: " + (this.lightOn ? "ON" : "OFF"));
             callback(undefined, this.lightOn);
         })
-            .on("set" /* SET */, (value, callback) => {
+            .on("set" /* CharacteristicEventTypes.SET */, (value, callback) => {
             let tempLightOn = value;
             if (tempLightOn && !this.lightOn) {
                 this.turnOnWLED();
@@ -121,12 +121,12 @@ class WLED {
     }
     registerCharacteristicAmbilightOnOff() {
         this.ambilightService.getCharacteristic(this.hap.Characteristic.On)
-            .on("get" /* GET */, (callback) => {
+            .on("get" /* CharacteristicEventTypes.GET */, (callback) => {
             if (this.debug)
                 this.log("Current state of the switch was returned: " + (this.ambilightOn ? "ON" : "OFF"));
             callback(undefined, this.ambilightOn);
         })
-            .on("set" /* SET */, (value, callback) => {
+            .on("set" /* CharacteristicEventTypes.SET */, (value, callback) => {
             this.ambilightOn = value;
             if (this.ambilightOn) {
                 this.turnOnAmbilight();
@@ -141,12 +141,12 @@ class WLED {
     }
     registerCharacteristicBrightness() {
         this.lightService.getCharacteristic(this.hap.Characteristic.Brightness)
-            .on("get" /* GET */, (callback) => {
+            .on("get" /* CharacteristicEventTypes.GET */, (callback) => {
             if (this.debug)
                 this.log("Current brightness: " + this.brightness);
             callback(undefined, this.currentBrightnessToPercent());
         })
-            .on("set" /* SET */, (value, callback) => {
+            .on("set" /* CharacteristicEventTypes.SET */, (value, callback) => {
             this.brightness = Math.round(255 / 100 * value);
             this.httpSetBrightness();
             if (this.prodLogging)
@@ -156,9 +156,9 @@ class WLED {
         if (this.showEffectControl) {
             // EFFECT SPEED
             this.speedService.getCharacteristic(this.hap.Characteristic.Brightness)
-                .on("get" /* GET */, (callback) => {
+                .on("get" /* CharacteristicEventTypes.GET */, (callback) => {
                 callback(undefined, Math.round(this.effectSpeed / 2.55));
-            }).on("set" /* SET */, (value, callback) => {
+            }).on("set" /* CharacteristicEventTypes.SET */, (value, callback) => {
                 this.effectSpeed = value;
                 this.effectSpeed = Math.round(this.effectSpeed * 2.55);
                 if (this.prodLogging)
@@ -170,14 +170,14 @@ class WLED {
     }
     registerCharacteristicHue() {
         this.lightService.getCharacteristic(this.hap.Characteristic.Hue)
-            .on("get" /* GET */, (callback) => {
+            .on("get" /* CharacteristicEventTypes.GET */, (callback) => {
             let colorArray = this.HSVtoRGB(this.hue, this.saturation);
             this.colorArray = colorArray;
             if (this.debug)
                 this.log("Current hue: " + this.hue + "%");
             callback(undefined, this.hue);
         })
-            .on("set" /* SET */, (value, callback) => {
+            .on("set" /* CharacteristicEventTypes.SET */, (value, callback) => {
             this.hue = value;
             this.turnOffAllEffects();
             let colorArray = this.HSVtoRGB(this.hue, this.saturation);
@@ -193,12 +193,12 @@ class WLED {
     }
     registerCharacteristicSaturation() {
         this.lightService.getCharacteristic(this.hap.Characteristic.Saturation)
-            .on("get" /* GET */, (callback) => {
+            .on("get" /* CharacteristicEventTypes.GET */, (callback) => {
             if (this.debug)
                 this.log("Current saturation: " + this.saturation + "%");
             callback(undefined, this.saturation);
         })
-            .on("set" /* SET */, (value, callback) => {
+            .on("set" /* CharacteristicEventTypes.SET */, (value, callback) => {
             this.saturation = value;
             this.turnOffAllEffects();
             callback();
@@ -206,7 +206,7 @@ class WLED {
     }
     registerCharacteristicEffectsActive() {
         this.effectsService.getCharacteristic(this.Characteristic.Active)
-            .on("set" /* SET */, (newValue, callback) => {
+            .on("set" /* CharacteristicEventTypes.SET */, (newValue, callback) => {
             if (newValue == 0) {
                 if (this.turnOffWledWithEffect) {
                     this.turnOffWLED();
@@ -229,7 +229,7 @@ class WLED {
     }
     registerCharacteristicEffectsActiveIdentifier() {
         this.effectsService.getCharacteristic(this.Characteristic.ActiveIdentifier)
-            .on("set" /* SET */, (newValue, callback) => {
+            .on("set" /* CharacteristicEventTypes.SET */, (newValue, callback) => {
             if (this.effectsAreActive) {
                 let effectID = this.effects[parseInt(newValue.toString())];
                 this.host.forEach((host) => {
@@ -245,7 +245,7 @@ class WLED {
     }
     registerCharacteristicPresetsActive() {
         this.presetsService.getCharacteristic(this.Characteristic.Active)
-            .on("set" /* SET */, (newValue, callback) => {
+            .on("set" /* CharacteristicEventTypes.SET */, (newValue, callback) => {
             if (newValue == 0) {
                 this.turnOffAllPresets();
                 this.presetsAreActive = false;
@@ -261,7 +261,7 @@ class WLED {
     }
     registerCharacteristicPresetsActiveIdentifier() {
         this.presetsService.getCharacteristic(this.Characteristic.ActiveIdentifier)
-            .on("set" /* SET */, (newValue, callback) => {
+            .on("set" /* CharacteristicEventTypes.SET */, (newValue, callback) => {
             if (this.presetsAreActive) {
                 let presetID = this.presets[parseInt(newValue.toString())];
                 this.host.forEach((host) => {
@@ -353,7 +353,7 @@ class WLED {
     }
     turnOffAllEffects() {
         this.host.forEach((host) => {
-            (0, utils_1.httpSendData)(`http://${host}/json`, "POST", { "seg": [{ "fx": 0, "sx": 0, "col": this.colorArray }] }, (error, response) => { if (error)
+            (0, utils_1.httpSendData)(`http://${host}/json`, "POST", { "seg": [{ "fx": 0, "sx": 0, "col": [this.colorArray] }] }, (error, response) => { if (error)
                 return; });
         });
         if (!this.disableEffectSwitch)
