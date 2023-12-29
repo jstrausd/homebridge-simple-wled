@@ -462,7 +462,7 @@ export class WLED {
 
   turnOffAllEffects(): void {
     this.host.forEach((host) => {
-      httpSendData(`http://${host}/json`, "POST", { "seg": [{ "fx": 0, "sx": 0, "col": this.colorArray }] }, (error: any, response: any) => { if (error) return; });
+        httpSendData(`http://${host}/json`, "POST", { "seg": [{ "fx": 0, "sx": 0, "col": [this.colorArray] }] }, (error: any, response: any) => { if (error) return; });
     });
     if (!this.disableEffectSwitch)
       this.effectsService.updateCharacteristic(this.Characteristic.Active, 0);
