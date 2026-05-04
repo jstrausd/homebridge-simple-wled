@@ -76,13 +76,13 @@ export class WLEDPlatform implements DynamicPlatformPlugin {
 
       // Remove stale cached accessories that are no longer in the config
       const staleAccessories = this.accessories.filter(
-          (accessory) => !configuredUUIDs.has(accessory.UUID),
+          accessory => !configuredUUIDs.has(accessory.UUID)
       );
       if (staleAccessories.length > 0) {
           this.log.info(`Removing ${staleAccessories.length} stale cached accessory/accessories.`);
           this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, staleAccessories);
           this.accessories = this.accessories.filter(
-              (accessory) => configuredUUIDs.has(accessory.UUID),
+              accessory => configuredUUIDs.has(accessory.UUID)
           );
       }
 

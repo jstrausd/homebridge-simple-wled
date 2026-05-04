@@ -149,18 +149,18 @@ export class WLED {
 
       this.wledAccessory.category = this.api.hap.Categories.LIGHTBULB;
 
-      this.lightService = this.wledAccessory.getServiceById(this.api.hap.Service.Lightbulb, 'LIGHT')
-          || this.wledAccessory.addService(this.api.hap.Service.Lightbulb, this.name, 'LIGHT');
+      this.lightService = this.wledAccessory.getServiceById(this.api.hap.Service.Lightbulb, 'LIGHT') ||
+          this.wledAccessory.addService(this.api.hap.Service.Lightbulb, this.name, 'LIGHT');
 
       if (this.showEffectControl) {
-          this.speedService = this.wledAccessory.getServiceById(this.api.hap.Service.Lightbulb, 'SPEED')
-              || this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Effect Speed', 'SPEED');
+          this.speedService = this.wledAccessory.getServiceById(this.api.hap.Service.Lightbulb, 'SPEED') ||
+              this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Effect Speed', 'SPEED');
           this.lightService.addLinkedService(this.speedService);
       }
 
       if (this.ambilightSwitch) {
-          this.ambilightService = this.wledAccessory.getServiceById(this.api.hap.Service.Lightbulb, 'AMBI')
-              || this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Ambilight', 'AMBI');
+          this.ambilightService = this.wledAccessory.getServiceById(this.api.hap.Service.Lightbulb, 'AMBI') ||
+              this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Ambilight', 'AMBI');
           this.lightService.addLinkedService(this.ambilightService);
           this.registerCharacteristicAmbilightOnOff();
       }
@@ -195,6 +195,7 @@ export class WLED {
       } else {
           this.api.updatePlatformAccessories([this.wledAccessory]);
       }
+
       this.log.info('WLED Strip finished initializing!');
 
       this.connectWebSockets();
