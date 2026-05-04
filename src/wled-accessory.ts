@@ -9,7 +9,7 @@ import {
     type Service,
     type HAP
 } from 'homebridge';
-import {PLUGIN_NAME} from './settings';
+import {PLUGIN_NAME, PLATFORM_NAME} from './settings';
 import {type WLEDPlatform} from './wled-platform';
 import {WLEDWebSocket, type WLEDResponse} from './utils/wsUtils';
 import {HSVtoRGB, RGBtoHSV} from './utils/colorUtils';
@@ -105,6 +105,8 @@ export class WLED {
 
   /*  END LOCAL CACHING VARIABLES */
 
+  private readonly isNewAccessory: boolean;
+
   constructor(platform: WLEDPlatform, wledConfig: any, loadedEffects: string[]) {
       this.log = platform.log;
       this.name = wledConfig.name || 'WLED';
@@ -137,23 +139,28 @@ export class WLED {
       if (foundAccessory === undefined) {
           // eslint-disable-next-line new-cap
           this.wledAccessory = new this.api.platformAccessory(this.name, uuid);
+          this.isNewAccessory = true;
       } else {
           this.wledAccessory = foundAccessory;
+          this.isNewAccessory = false;
       }
 
       this.log.info('Setting up Accessory ' + this.name + ' with Host-IP: ' + this.host + ((this.multipleHosts) ? ' Multiple WLED-Hosts configured' : ' Single WLED-Host configured'));
 
       this.wledAccessory.category = this.api.hap.Categories.LIGHTBULB;
 
-      this.lightService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, this.name, 'LIGHT');
+      this.lightService = this.wledAccessory.getServiceById(this.api.hap.Service.Lightbulb, 'LIGHT')
+          || this.wledAccessory.addService(this.api.hap.Service.Lightbulb, this.name, 'LIGHT');
 
       if (this.showEffectControl) {
-          this.speedService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Effect Speed', 'SPEED');
+          this.speedService = this.wledAccessory.getServiceById(this.api.hap.Service.Lightbulb, 'SPEED')
+              || this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Effect Speed', 'SPEED');
           this.lightService.addLinkedService(this.speedService);
       }
 
       if (this.ambilightSwitch) {
-          this.ambilightService = this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Ambilight', 'AMBI');
+          this.ambilightService = this.wledAccessory.getServiceById(this.api.hap.Service.Lightbulb, 'AMBI')
+              || this.wledAccessory.addService(this.api.hap.Service.Lightbulb, 'Ambilight', 'AMBI');
           this.lightService.addLinkedService(this.ambilightService);
           this.registerCharacteristicAmbilightOnOff();
       }
@@ -183,10 +190,11 @@ export class WLED {
           this.addPresetsInputSources(wledConfig.presets);
       }
 
-      this.api.publishExternalAccessories(PLUGIN_NAME, [this.wledAccessory]);
-      this.platform.accessories.push(this.wledAccessory);
-
-      this.api.updatePlatformAccessories([this.wledAccessory]);
+      if (this.isNewAccessory) {
+          this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [this.wledAccessory]);
+      } else {
+          this.api.updatePlatformAccessories([this.wledAccessory]);
+      }
       this.log.info('WLED Strip finished initializing!');
 
       this.connectWebSockets();

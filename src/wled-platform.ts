@@ -1,5 +1,6 @@
 import {type API, APIEvent, type DynamicPlatformPlugin, type Logging, type PlatformAccessory, type PlatformConfig} from 'homebridge';
 import {WLED} from './wled-accessory';
+import {PLUGIN_NAME, PLATFORM_NAME} from './settings';
 import {loadEffectsViaHTTP} from './utils/wsUtils';
 
 export class WLEDPlatform implements DynamicPlatformPlugin {
@@ -61,6 +62,28 @@ export class WLEDPlatform implements DynamicPlatformPlugin {
       if (!this.config.wleds || !Array.isArray(this.config.wleds)) {
           this.log.warn('No WLEDs configured or invalid configuration.');
           return;
+      }
+
+      // Build set of expected accessory UUIDs from current config
+      const configuredUUIDs = new Set<string>();
+      for (const wled of this.config.wleds) {
+          if (wled && wled.host) {
+              const name = wled.name || 'WLED';
+              const uuid = this.api.hap.uuid.generate('homebridge:wled' + name);
+              configuredUUIDs.add(uuid);
+          }
+      }
+
+      // Remove stale cached accessories that are no longer in the config
+      const staleAccessories = this.accessories.filter(
+          (accessory) => !configuredUUIDs.has(accessory.UUID),
+      );
+      if (staleAccessories.length > 0) {
+          this.log.info(`Removing ${staleAccessories.length} stale cached accessory/accessories.`);
+          this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, staleAccessories);
+          this.accessories = this.accessories.filter(
+              (accessory) => configuredUUIDs.has(accessory.UUID),
+          );
       }
 
       for (const wled of this.config.wleds) {

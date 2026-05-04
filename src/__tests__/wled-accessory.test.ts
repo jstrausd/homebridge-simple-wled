@@ -74,6 +74,7 @@ describe('WLED Accessory', () => {
             hap: mockHap,
             platformAccessory: jest.fn().mockImplementation(() => mockAccessory),
             publishExternalAccessories: jest.fn(),
+            registerPlatformAccessories: jest.fn(),
             updatePlatformAccessories: jest.fn()
         };
 
