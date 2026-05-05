@@ -9,7 +9,7 @@ import {
     type Service,
     type HAP
 } from 'homebridge';
-import {PLUGIN_NAME, PLATFORM_NAME} from './settings';
+import {PLUGIN_NAME} from './settings';
 import {type WLEDPlatform} from './wled-platform';
 import {WLEDWebSocket, type WLEDResponse} from './utils/wsUtils';
 import {HSVtoRGB, RGBtoHSV} from './utils/colorUtils';
@@ -105,8 +105,6 @@ export class WLED {
 
   /*  END LOCAL CACHING VARIABLES */
 
-  private readonly isNewAccessory: boolean;
-
   constructor(platform: WLEDPlatform, wledConfig: any, loadedEffects: string[]) {
       this.log = platform.log;
       this.name = wledConfig.name || 'WLED';
@@ -139,10 +137,8 @@ export class WLED {
       if (foundAccessory === undefined) {
           // eslint-disable-next-line new-cap
           this.wledAccessory = new this.api.platformAccessory(this.name, uuid);
-          this.isNewAccessory = true;
       } else {
           this.wledAccessory = foundAccessory;
-          this.isNewAccessory = false;
       }
 
       this.log.info('Setting up Accessory ' + this.name + ' with Host-IP: ' + this.host + ((this.multipleHosts) ? ' Multiple WLED-Hosts configured' : ' Single WLED-Host configured'));
@@ -190,11 +186,7 @@ export class WLED {
           this.addPresetsInputSources(wledConfig.presets);
       }
 
-      if (this.isNewAccessory) {
-          this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [this.wledAccessory]);
-      } else {
-          this.api.updatePlatformAccessories([this.wledAccessory]);
-      }
+      this.api.publishExternalAccessories(PLUGIN_NAME, [this.wledAccessory]);
 
       this.log.info('WLED Strip finished initializing!');
 

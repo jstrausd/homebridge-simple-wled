@@ -217,6 +217,159 @@ describe('WLED Accessory', () => {
         });
     });
 
+    describe('Cached accessory handling (HB 2.0 compat)', () => {
+        it('should reuse existing services from cached accessory instead of adding duplicates', () => {
+            jest.clearAllMocks();
+
+            const existingLightService = {
+                getCharacteristic: jest.fn().mockReturnValue({
+                    on: jest.fn().mockReturnThis(),
+                    updateCharacteristic: jest.fn()
+                }),
+                updateCharacteristic: jest.fn(),
+                addLinkedService: jest.fn(),
+                setCharacteristic: jest.fn().mockReturnThis()
+            };
+
+            const existingEffectsService = {
+                getCharacteristic: jest.fn().mockReturnValue({
+                    on: jest.fn().mockReturnThis(),
+                    updateCharacteristic: jest.fn()
+                }),
+                setCharacteristic: jest.fn().mockReturnThis(),
+                updateCharacteristic: jest.fn(),
+                addLinkedService: jest.fn()
+            };
+
+            const existingInputSource = {
+                setCharacteristic: jest.fn().mockReturnThis(),
+                updateCharacteristic: jest.fn()
+            };
+
+            // Simulate cached accessory that already has services
+            const cachedAccessory = {
+                UUID: 'test-uuid',
+                category: undefined,
+                addService: jest.fn().mockReturnValue(existingLightService),
+                getService: jest.fn(),
+                getServiceById: jest.fn().mockImplementation((serviceType: string, subType: string) => {
+                    if (serviceType === 'Lightbulb' && subType === 'LIGHT') {
+                        return existingLightService;
+                    }
+
+                    if (serviceType === 'Television' && subType === 'Effects') {
+                        return existingEffectsService;
+                    }
+
+                    if (serviceType === 'InputSource') {
+                        return existingInputSource;
+                    }
+
+                    return undefined;
+                })
+            };
+
+            // Platform with the cached accessory already in list
+            const platformWithCache = {
+                log: mockLog,
+                api: mockApi,
+                accessories: [cachedAccessory],
+                config: {wleds: [mockWledConfig]}
+            } as any;
+
+            const cachedWled = new WLED(platformWithCache, mockWledConfig, mockEffects);
+
+            // Should NOT have called addService for Lightbulb since getServiceById returned it
+            const lightbulbAddCalls = (cachedAccessory.addService as jest.Mock).mock.calls
+                .filter((c: any[]) => c[0] === 'Lightbulb' && c[2] === 'LIGHT');
+            expect(lightbulbAddCalls.length).toBe(0);
+
+            // Should have called getServiceById for LIGHT service
+            expect(cachedAccessory.getServiceById).toHaveBeenCalledWith('Lightbulb', 'LIGHT');
+
+            cachedWled.disconnect();
+        });
+
+        it('should publish as external accessory (required for Television service)', () => {
+            // External accessories are required for HomeKit Television service support
+            expect(mockApi.publishExternalAccessories).toHaveBeenCalledWith(
+                'homebridge-simple-wled',
+                [mockAccessory]
+            );
+
+            // Should NOT use registerPlatformAccessories (breaks Television service in HomeKit)
+            expect(mockApi.registerPlatformAccessories).not.toHaveBeenCalled();
+        });
+
+        it('should not use numeric IDs as InputSource service names', () => {
+            // Verify that addService was called with effect names, not numeric IDs
+            const inputSourceCalls = (mockAccessory.addService as jest.Mock).mock.calls
+                .filter((c: any[]) => c[0] === 'InputSource');
+
+            inputSourceCalls.forEach((call: any[]) => {
+                const displayName = call[1];
+
+                // Display name should NOT be a pure number
+                expect(displayName).not.toMatch(/^\d+$/);
+
+                // Display name should be an effect or preset name
+                expect(typeof displayName).toBe('string');
+                expect(displayName.length).toBeGreaterThan(1);
+            });
+        });
+
+        it('should reuse cached InputSource services on reboot', () => {
+            jest.clearAllMocks();
+
+            const existingInputSource = {
+                setCharacteristic: jest.fn().mockReturnThis()
+            };
+
+            const cachedAccessory = {
+                UUID: 'test-uuid',
+                category: undefined,
+                addService: jest.fn().mockReturnValue({
+                    getCharacteristic: jest.fn().mockReturnValue({
+                        on: jest.fn().mockReturnThis(),
+                        updateCharacteristic: jest.fn()
+                    }),
+                    updateCharacteristic: jest.fn(),
+                    addLinkedService: jest.fn(),
+                    setCharacteristic: jest.fn().mockReturnThis()
+                }),
+                getService: jest.fn(),
+                getServiceById: jest.fn().mockImplementation((serviceType: string, subType: string) => {
+                    // Return existing InputSource for known effect names
+                    if (serviceType === 'InputSource' && (subType === 'Rainbow Runner' || subType === 'Circus')) {
+                        return existingInputSource;
+                    }
+
+                    return undefined;
+                })
+            };
+
+            const platformWithCache = {
+                log: mockLog,
+                api: mockApi,
+                accessories: [cachedAccessory],
+                config: {wleds: [mockWledConfig]}
+            } as any;
+
+            const cachedWled = new WLED(platformWithCache, mockWledConfig, mockEffects);
+
+            // Should NOT have called addService for InputSource since getServiceById returned them
+            const inputSourceAddCalls = (cachedAccessory.addService as jest.Mock).mock.calls
+                .filter((c: any[]) => c[0] === 'InputSource');
+            expect(inputSourceAddCalls.length).toBe(0);
+
+            // Should have looked up existing InputSource services by effect name
+            expect(cachedAccessory.getServiceById).toHaveBeenCalledWith('InputSource', 'Rainbow Runner');
+            expect(cachedAccessory.getServiceById).toHaveBeenCalledWith('InputSource', 'Circus');
+
+            cachedWled.disconnect();
+        });
+    });
+
     describe('Color calculations', () => {
         it('should convert HSV to RGB correctly', () => {
             // HSVtoRGB is mocked, so we just verify the colorArray is set

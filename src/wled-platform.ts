@@ -55,6 +55,9 @@ export class WLEDPlatform implements DynamicPlatformPlugin {
   }
 
   configureAccessory(accessory: PlatformAccessory): void {
+      // This plugin uses publishExternalAccessories (required for Television service).
+      // Platform-cached accessories here are stale leftovers from v2.1.0/v2.1.1.
+      this.log.info(`Found stale cached platform accessory: ${accessory.displayName} — will be removed.`);
       this.accessories.push(accessory);
   }
 
@@ -64,26 +67,11 @@ export class WLEDPlatform implements DynamicPlatformPlugin {
           return;
       }
 
-      // Build set of expected accessory UUIDs from current config
-      const configuredUUIDs = new Set<string>();
-      for (const wled of this.config.wleds) {
-          if (wled && wled.host) {
-              const name = wled.name || 'WLED';
-              const uuid = this.api.hap.uuid.generate('homebridge:wled' + name);
-              configuredUUIDs.add(uuid);
-          }
-      }
-
-      // Remove stale cached accessories that are no longer in the config
-      const staleAccessories = this.accessories.filter(
-          accessory => !configuredUUIDs.has(accessory.UUID)
-      );
-      if (staleAccessories.length > 0) {
-          this.log.info(`Removing ${staleAccessories.length} stale cached accessory/accessories.`);
-          this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, staleAccessories);
-          this.accessories = this.accessories.filter(
-              accessory => configuredUUIDs.has(accessory.UUID)
-          );
+      // Remove any stale platform-cached accessories (this plugin uses external accessories only)
+      if (this.accessories.length > 0) {
+          this.log.info(`Removing ${this.accessories.length} stale platform-cached accessory/accessories.`);
+          this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, this.accessories);
+          this.accessories = [];
       }
 
       for (const wled of this.config.wleds) {
