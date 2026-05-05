@@ -641,7 +641,8 @@ export class WLED {
       effects.forEach((effectName: string, i: number) => {
           const effectID = this.getEffectIdByName(effectName);
           this.effects.push(effectID);
-          const effectInputSource = this.wledAccessory.addService(this.hap.Service.InputSource, String(effectID), effectName);
+          const effectInputSource = this.wledAccessory.getServiceById(this.hap.Service.InputSource, effectName) ||
+              this.wledAccessory.addService(this.hap.Service.InputSource, effectName, effectName);
           effectInputSource
               .setCharacteristic(this.Characteristic.Identifier, i)
               .setCharacteristic(this.Characteristic.ConfiguredName, effectName)
@@ -659,7 +660,8 @@ export class WLED {
       presets.forEach((presetName: string, i: number) => {
           const presetID = i;
           this.presets.push(presetID);
-          const presetInputSource = this.wledAccessory.addService(this.hap.Service.InputSource, String(presetID), presetName);
+          const presetInputSource = this.wledAccessory.getServiceById(this.hap.Service.InputSource, presetName) ||
+              this.wledAccessory.addService(this.hap.Service.InputSource, presetName, presetName);
           presetInputSource
               .setCharacteristic(this.Characteristic.Identifier, presetID)
               .setCharacteristic(this.Characteristic.ConfiguredName, presetName)
